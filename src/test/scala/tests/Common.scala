@@ -1,27 +1,15 @@
-package com.sneaksanddata.arcane.stream_dynamodb
+package com.sneaksanddata.arcane.stream_pull
 package tests
 
-import main.{appLayer, blobSourceLayer, s3ReaderLayer}
-import models.app.DynamodbPluginStreamContext
+import main.{appLayer, dynamoDbClientLayer, pullStreamingSourceLayer}
 
+import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, StreamGraphResolver}
 import com.sneaksanddata.arcane.framework.services.backfill.DefaultBackfillStateManager
 import com.sneaksanddata.arcane.framework.services.backfill.processors.{
   BackfillCompletionProcessor,
   ShardStagingProcessor
 }
-import com.sneaksanddata.arcane.framework.services.blobsource.backfill.{
-  BlobBackfillSourceDataProvider,
-  BlobShardedBackfillStreamDataProvider,
-  BlobSourceBackfillMergeStreamDataProvider,
-  BlobSourceShardFactory
-}
-import com.sneaksanddata.arcane.framework.services.blobsource.providers.{
-  BlobSourceDataProvider,
-  BlobSourceStreamingDataProvider
-}
-import com.sneaksanddata.arcane.framework.services.blobsource.readers.listing.BlobListingJsonSource
-import com.sneaksanddata.arcane.framework.services.blobsource.versioning.UpsertBlobStagedBatchFactory
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.iceberg.{
@@ -33,6 +21,16 @@ import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClien
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
+import com.sneaksanddata.arcane.framework.services.pushstream.{
+  PushStreamSourceDataProvider,
+  PushStreamStagedBatchFactory,
+  PushStreamStreamingDataProvider
+}
+import com.sneaksanddata.arcane.framework.services.pushstream.backfill.{
+  NoopBackfillStreamDataProvider,
+  NoopShardFactory,
+  NoopShardedBackfillStreamDataProvider
+}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
@@ -47,7 +45,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
 import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
-import zio.{ULayer, ZIO, ZLayer}
+import zio.{ZIO, ZLayer}
 
 import java.sql.ResultSet
 import java.time.Duration
@@ -57,21 +55,23 @@ import java.time.Duration
 object Common:
 
   /** Builds the test application from the provided layers.
+    *
+    * @param runDuration
+    *   How long the streaming application should run before being interrupted.
     * @param streamContextLayer
-    *   The stream context layer.
-    * @return
-    *   The test application.
+    *   The stream context layer providing a [[PluginStreamContext]] backed by a [[PullStreamPluginContext]].
     */
   def getTestApp(
       runDuration: Duration,
-      streamContextLayer: ZLayer[Any, Nothing, DynamodbPluginStreamContext]
+      streamContextLayer: ZLayer[Any, Nothing, PluginStreamContext]
   ): ZIO[Any, Throwable, Unit] =
     buildTestApp(
       appLayer,
       streamContextLayer,
-      s3ReaderLayer,
-      BlobSourceStreamingDataProvider.layer
+      pullStreamingSourceLayer,
+      ZLayer.succeed(TimeLimitLifetimeService(runDuration))
     )(
+      dynamoDbClientLayer,
       GenericStreamRunnerService.layer,
       StreamGraphResolver.composedLayer,
       DisposeBatchProcessor.layer,
@@ -79,92 +79,45 @@ object Common:
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
-      IcebergS3CatalogWriter.layer,
-      JdbcMergeServiceClient.layer,
-      DeclaredMetrics.layer,
-      GlobalMetricTagProvider.layer,
-      WatermarkProcessor.layer,
-      ZLayer.succeed(TimeLimitLifetimeService(runDuration)),
-      BlobSourceDataProvider.layer,
-      blobSourceLayer,
-      UpsertBlobStagedBatchFactory.layer,
+      SchemaMigrationProcessor.layer,
 
-      // backfill
-      BlobBackfillSourceDataProvider.layer,
-      BlobSourceShardFactory.layer,
-      BlobShardedBackfillStreamDataProvider.layer,
-      BlobSourceBackfillMergeStreamDataProvider.layer,
+      // pullStreamPlugin layers
+      PushStreamStagedBatchFactory.layer,
+      PushStreamSourceDataProvider.layer,
+      PushStreamStreamingDataProvider.layer,
       DefaultBackfillStateManager.layer,
       ShardStagingProcessor.layer,
       BackfillCompletionProcessor.layer,
+      NoopBackfillStreamDataProvider.layer,
+      NoopShardedBackfillStreamDataProvider.layer,
+      NoopShardFactory.layer,
 
-      // schema
-      SchemaMigrationProcessor.layer,
+      // sink / staging
+      IcebergS3CatalogWriter.layer,
+      IcebergEntityManager.sinkLayer,
+      IcebergEntityManager.stagingLayer,
+      IcebergTablePropertyManager.stagingLayer,
+      IcebergTablePropertyManager.sinkLayer,
+      JdbcMergeServiceClient.layer,
+
+      // observability (no DataDog publisher in tests)
+      DeclaredMetrics.layer,
+      GlobalMetricTagProvider.layer,
+      WatermarkProcessor.layer,
 
       // maintenance and cleanup
       TargetMaintenanceProcessor.layer,
       CatalogDisposeServiceClient.layer,
       DefaultNameGenerator.layer,
       DefaultStreamBootstrapper.layer,
-      ThroughputShaperBuilder.layer,
-      IcebergEntityManager.sinkLayer,
-      IcebergEntityManager.stagingLayer,
-      IcebergTablePropertyManager.stagingLayer,
-      IcebergTablePropertyManager.sinkLayer
+      ThroughputShaperBuilder.layer
     )
 
-  val TargetDecoder: ResultSet => (Long, String, Long, String, Long, String, Long, String, Long, String, String, Long) =
+  val TargetDecoder: ResultSet => (String, String, String, String) =
     (rs: ResultSet) =>
       (
-        rs.getLong(1),
+        rs.getString(1),
         rs.getString(2),
-        rs.getLong(3),
-        rs.getString(4),
-        rs.getLong(5),
-        rs.getString(6),
-        rs.getLong(7),
-        rs.getString(8),
-        rs.getLong(9),
-        rs.getString(10),
-        rs.getString(11),
-        rs.getLong(12)
+        rs.getString(3),
+        rs.getString(4)
       )
-
-  val TargetNestedDecoder: ResultSet => (
-      Long,
-      String,
-      Long,
-      String,
-      Long,
-      String,
-      Long,
-      String,
-      Long,
-      String,
-      String,
-      Long,
-      String,
-      Long
-  ) =
-    (rs: ResultSet) =>
-      (
-        rs.getLong(1),
-        rs.getString(2),
-        rs.getLong(3),
-        rs.getString(4),
-        rs.getLong(5),
-        rs.getString(6),
-        rs.getLong(7),
-        rs.getString(8),
-        rs.getLong(9),
-        rs.getString(10),
-        rs.getString(11),
-        rs.getLong(12),
-        rs.getString(13),
-        rs.getLong(14)
-      )
-
-  val avroSchemaString =
-    """{ \"name\": \"GeneratedAvroSchemaTest\", \"namespace\": \"com.group.GeneratedAvroSchemaTest\", \"doc\": \"Unit test data schema\", \"type\": \"record\", \"fields\": [ { \"name\": \"col0\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col1\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"col2\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col3\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"col4\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col5\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"col6\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col7\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"col8\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col9\", \"type\": [ \"null\", \"string\" ], \"default\": null } ] }"""
-  val nestedAvroSchemaString =
-    """{ \"name\": \"BlobListingJsonSource\", \"namespace\": \"com.sneaksanddata.arcane.BlobListingJsonSource\", \"doc\": \"Avro Schema with nested fields for BlobListingJsonSource tests\", \"type\": \"record\", \"fields\": [ { \"name\": \"col0\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col1\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"col2\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col3\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"col4\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col5\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"col6\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col7\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"col8\", \"type\": [ \"null\", \"int\" ], \"default\": null }, { \"name\": \"col9\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"nested_col_1\", \"type\": [ \"null\", \"string\" ], \"default\": null }, { \"name\": \"nested_col_2\", \"type\": [ \"null\", \"int\" ], \"default\": null } ] }"""
