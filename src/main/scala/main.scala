@@ -46,7 +46,6 @@ import com.sneaksanddata.arcane.framework.services.pushstream.backfill.{
   NoopShardedBackfillStreamDataProvider,
   NoopShardFactory
 }
-import com.sneaksanddata.arcane.stream_pull.services.TaggedPushStreamingSource
 import com.sneaksanddata.arcane.pull_stream_plugin_context.models.app.PullStreamPluginContext
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
@@ -66,7 +65,7 @@ object main extends ZIOAppDefault {
   yield ()
 
   val pullStreamingSourceLayer =
-    TaggedPushStreamingSource.getLayer(context => context.asInstanceOf[PullStreamPluginContext].source.configuration)
+    PushStreamingSource.getLayer(context => context.asInstanceOf[PullStreamPluginContext].source.configuration)
 
   val dynamoDbClientLayer: ZLayer[PluginStreamContext, Throwable, DynamoDbClient] =
     ZLayer.scoped {
