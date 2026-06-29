@@ -21,12 +21,12 @@ import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClien
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
-import com.sneaksanddata.arcane.framework.services.pushstream.{
-  PushStreamSourceDataProvider,
-  PushStreamStagedBatchFactory,
-  PushStreamStreamingDataProvider
+import com.sneaksanddata.arcane.framework.services.pullstream.{
+  PullStreamSourceDataProvider,
+  PullStreamStagedBatchFactory,
+  PullStreamStreamingDataProvider
 }
-import com.sneaksanddata.arcane.framework.services.pushstream.backfill.{
+import com.sneaksanddata.arcane.framework.services.pullstream.backfill.{
   NoopBackfillStreamDataProvider,
   NoopShardFactory,
   NoopShardedBackfillStreamDataProvider
@@ -82,9 +82,9 @@ object Common:
       SchemaMigrationProcessor.layer,
 
       // pullStreamPlugin layers
-      PushStreamStagedBatchFactory.layer,
-      PushStreamSourceDataProvider.layer,
-      PushStreamStreamingDataProvider.layer,
+      PullStreamStagedBatchFactory.layer,
+      PullStreamSourceDataProvider.layer,
+      PullStreamStreamingDataProvider.layer,
       DefaultBackfillStateManager.layer,
       ShardStagingProcessor.layer,
       BackfillCompletionProcessor.layer,

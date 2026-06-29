@@ -26,8 +26,8 @@ import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClien
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
-import com.sneaksanddata.arcane.framework.services.pushstream.*
-import com.sneaksanddata.arcane.framework.services.pushstream.PushStreamingSource
+import com.sneaksanddata.arcane.framework.services.pullstream.*
+import com.sneaksanddata.arcane.framework.services.pullstream.PullStreamingSource
 import com.sneaksanddata.arcane.framework.services.storage.models.s3.S3StoragePath
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
@@ -41,7 +41,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
   StagingProcessor
 }
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
-import com.sneaksanddata.arcane.framework.services.pushstream.backfill.{
+import com.sneaksanddata.arcane.framework.services.pullstream.backfill.{
   NoopBackfillStreamDataProvider,
   NoopShardedBackfillStreamDataProvider,
   NoopShardFactory
@@ -65,7 +65,7 @@ object main extends ZIOAppDefault {
   yield ()
 
   val pullStreamingSourceLayer =
-    PushStreamingSource.getLayer(context => context.asInstanceOf[PullStreamPluginContext].source.configuration)
+    PullStreamingSource.getLayer(context => context.asInstanceOf[PullStreamPluginContext].source.configuration)
 
   val dynamoDbClientLayer: ZLayer[PluginStreamContext, Throwable, DynamoDbClient] =
     ZLayer.scoped {
@@ -100,9 +100,9 @@ object main extends ZIOAppDefault {
     // schema
     SchemaMigrationProcessor.layer,
     // pullStreamPlugin
-    PushStreamStagedBatchFactory.layer,
-    PushStreamSourceDataProvider.layer,
-    PushStreamStreamingDataProvider.layer,
+    PullStreamStagedBatchFactory.layer,
+    PullStreamSourceDataProvider.layer,
+    PullStreamStreamingDataProvider.layer,
     DefaultBackfillStateManager.layer,
     ShardStagingProcessor.layer,
     BackfillCompletionProcessor.layer,

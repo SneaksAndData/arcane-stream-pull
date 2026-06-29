@@ -3,15 +3,15 @@ package models.app
 
 import com.sneaksanddata.arcane.framework.models.settings.DefaultFieldSelectionRuleSettings
 import com.sneaksanddata.arcane.framework.models.settings.sources.{DefaultSourceBufferingSettings, StreamSourceSettings}
-import com.sneaksanddata.arcane.framework.models.settings.sources.pushstream.{
-  PushStreamSourceSettings,
-  DefaultPushStreamSourceSettings
+import com.sneaksanddata.arcane.framework.models.settings.sources.pullstream.{
+  PullStreamSourceSettings,
+  DefaultPullStreamSourceSettings
 }
 import upickle.ReadWriter
 
 case class PullStreamSourceSettings(
     override val buffering: DefaultSourceBufferingSettings,
     override val fieldSelectionRule: DefaultFieldSelectionRuleSettings,
-    override val configuration: DefaultPushStreamSourceSettings
+    override val configuration: DefaultPullStreamSourceSettings
 ) extends StreamSourceSettings derives ReadWriter:
-  override type SourceSettingsType = DefaultPushStreamSourceSettings
+  override type SourceSettingsType = DefaultPullStreamSourceSettings

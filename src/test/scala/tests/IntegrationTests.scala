@@ -3,7 +3,7 @@ package tests
 
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
 import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field, MergeKeyField}
-import com.sneaksanddata.arcane.framework.services.pushstream.versioning.PushStreamWatermark
+import com.sneaksanddata.arcane.framework.services.pullstream.versioning.PullStreamWatermark
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
 import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{clearTarget, readTarget}
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
@@ -31,7 +31,7 @@ object IntegrationTests extends ZIOSpecDefault:
 
   // Iceberg schema for both the source-schema lookup table and the merge target.
   // MergeKeyField is required so the merge processor can locate a merge key; TimestampUTC is used
-  // by PushStreamChangeTrackingMergeBatch as the version field in its `ORDER BY ... DESC` clause.
+  // by PullStreamChangeTrackingMergeBatch as the version field in its `ORDER BY ... DESC` clause.
   private val sourceSchema: ArcaneSchema = ArcaneSchema(
     Seq(
       Field("id", StringType),
@@ -225,7 +225,7 @@ object IntegrationTests extends ZIOSpecDefault:
 
           // The pull source uses `comment` on the target iceberg table as its watermark.
           // We set it to "now()" so any item we insert with a strictly greater timestamp will be ingested.
-          watermarkStart = PushStreamWatermark(
+          watermarkStart = PullStreamWatermark(
             OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusSeconds(1)
           )
           _ <- prepareWatermark(SourceTableShort, sourceSchema, watermarkStart)
