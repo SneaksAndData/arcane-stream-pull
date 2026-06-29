@@ -4,13 +4,24 @@ import com.sneaksanddata.arcane.framework.exceptions.StreamFailException
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import com.sneaksanddata.arcane.framework.services.app.base.StreamRunnerService
-import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService, StreamGraphResolver}
+import com.sneaksanddata.arcane.framework.services.app.{
+  GenericStreamRunnerService,
+  PosixStreamLifetimeService,
+  StreamGraphResolver
+}
 import com.sneaksanddata.arcane.framework.services.backfill.DefaultBackfillStateManager
-import com.sneaksanddata.arcane.framework.services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
+import com.sneaksanddata.arcane.framework.services.backfill.processors.{
+  BackfillCompletionProcessor,
+  ShardStagingProcessor
+}
 import com.sneaksanddata.arcane.framework.services.blobsource.DefaultS3Reader
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
-import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import com.sneaksanddata.arcane.framework.services.iceberg.{
+  IcebergEntityManager,
+  IcebergS3CatalogWriter,
+  IcebergTablePropertyManager
+}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
@@ -19,14 +30,30 @@ import com.sneaksanddata.arcane.framework.services.pushstream.*
 import com.sneaksanddata.arcane.framework.services.pushstream.PushStreamingSource
 import com.sneaksanddata.arcane.framework.services.storage.models.s3.S3StoragePath
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  SchemaMigrationProcessor,
+  WatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
+  FieldFilteringTransformer,
+  StagingProcessor
+}
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
-import com.sneaksanddata.arcane.framework.services.pushstream.backfill.{NoopBackfillStreamDataProvider, NoopShardedBackfillStreamDataProvider, NoopShardFactory}
+import com.sneaksanddata.arcane.framework.services.pushstream.backfill.{
+  NoopBackfillStreamDataProvider,
+  NoopShardedBackfillStreamDataProvider,
+  NoopShardFactory
+}
+import com.sneaksanddata.arcane.stream_pull.services.TaggedPushStreamingSource
 import com.sneaksanddata.arcane.pull_stream_plugin_context.models.app.PullStreamPluginContext
+import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import zio.*
 import zio.logging.backend.SLF4J
+
+import java.net.URI
 
 object main extends ZIOAppDefault {
 
@@ -39,16 +66,21 @@ object main extends ZIOAppDefault {
   yield ()
 
   val pullStreamingSourceLayer =
-    PushStreamingSource.getLayer(context =>
-      context.asInstanceOf[PullStreamPluginContext].source.configuration
-    )
+    TaggedPushStreamingSource.getLayer(context => context.asInstanceOf[PullStreamPluginContext].source.configuration)
 
   val dynamoDbClientLayer: ZLayer[PluginStreamContext, Throwable, DynamoDbClient] =
     ZLayer.scoped {
-      ZIO.fromAutoCloseable(ZIO.attempt {
-        val builder = software.amazon.awssdk.services.dynamodb.DynamoDbClient.builder()
-          builder.build()
-      })
+      ZIO.fromAutoCloseable {
+        for
+          context <- ZIO.service[PluginStreamContext]
+          settings = context.asInstanceOf[PullStreamPluginContext].source.configuration
+          client <- ZIO.attempt {
+            val builder = DynamoDbClient.builder().region(Region.of(settings.region))
+            settings.endpoint.foreach(ep => builder.endpointOverride(URI.create(ep)))
+            builder.build()
+          }
+        yield client
+      }
     }
 
   private def getExitCode(exception: Throwable): zio.ExitCode =

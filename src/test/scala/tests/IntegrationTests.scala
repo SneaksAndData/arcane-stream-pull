@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.stream_pull
 package tests
 
-import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.{LongType, StringType}
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
 import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.pushstream.versioning.PushStreamWatermark
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
@@ -37,7 +37,6 @@ object IntegrationTests extends ZIOSpecDefault:
       Field("id", StringType),
       Field("value", StringType),
       Field("TimestampUTC", StringType),
-      Field("createdon", LongType),
       MergeKeyField
     )
   )
@@ -209,7 +208,7 @@ object IntegrationTests extends ZIOSpecDefault:
   private def payloadFor(items: Seq[(String, String, OffsetDateTime, String)]): String =
     items
       .map { case (mergeKey, id, ts, value) =>
-        s"""{"id":"$id","value":"$value","TimestampUTC":"${ts.toString}","createdon":${ts.toInstant.toEpochMilli},"ARCANE_MERGE_KEY":"$mergeKey"}"""
+        s"""{"id":"$id","value":"$value","TimestampUTC":"${ts.toString}","ARCANE_MERGE_KEY":"$mergeKey"}"""
       }
       .mkString("[", ",", "]")
 
@@ -249,8 +248,8 @@ object IntegrationTests extends ZIOSpecDefault:
           contextLayer: ZLayer[Any, Nothing, com.sneaksanddata.arcane.framework.models.app.PluginStreamContext] =
             ZLayer.succeed(PullStreamPluginContext(streamContextJson(DynamoEndpoint)))
 
-          runner <- Common.getTestApp(Duration.ofSeconds(45), contextLayer).fork
-          _      <- runner.runOrFail(zio.Duration.fromSeconds(60))
+          runner <- Common.getTestApp(Duration.ofSeconds(15), contextLayer).fork
+          _      <- runner.runOrFail(zio.Duration.fromSeconds(20))
 
           rows <- readTarget(
             TargetTableFull,
@@ -262,7 +261,7 @@ object IntegrationTests extends ZIOSpecDefault:
           assertTrue(rows.map(_._3).toSet == Set("value-1", "value-2", "value-3"))
       }
     }
-  ) @@ timeout(zio.Duration.fromSeconds(180))
+  ) @@ timeout(zio.Duration.fromSeconds(30))
     @@ TestAspect.withLiveClock
     @@ TestAspect.sequential
     @@ TestAspect.before(liveSeed)

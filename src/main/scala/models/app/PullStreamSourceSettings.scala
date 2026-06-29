@@ -3,7 +3,10 @@ package models.app
 
 import com.sneaksanddata.arcane.framework.models.settings.DefaultFieldSelectionRuleSettings
 import com.sneaksanddata.arcane.framework.models.settings.sources.{DefaultSourceBufferingSettings, StreamSourceSettings}
-import com.sneaksanddata.arcane.framework.models.settings.sources.pushstream.{PushStreamSourceSettings, DefaultPushStreamSourceSettings}
+import com.sneaksanddata.arcane.framework.models.settings.sources.pushstream.{
+  PushStreamSourceSettings,
+  DefaultPushStreamSourceSettings
+}
 import upickle.ReadWriter
 
 case class PullStreamSourceSettings(

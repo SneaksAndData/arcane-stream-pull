@@ -1,10 +1,10 @@
 import com.typesafe.sbt.packager.graalvmnativeimage.GraalVMNativeImagePlugin.autoImport.GraalVMNativeImage
 
-ThisBuild / version := "1.2.1-SNAPSHOT"
+ThisBuild / version                   := "1.2.1-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
-ThisBuild / exportJars := true
-ThisBuild / scalaVersion := "3.8.3"
-ThisBuild / organization := "com.sneaksanddata"
+ThisBuild / exportJars                := true
+ThisBuild / scalaVersion              := "3.8.3"
+ThisBuild / organization              := "com.sneaksanddata"
 
 resolvers += "Arcane framework repo" at "https://maven.pkg.github.com/SneaksAndData/arcane-framework-scala"
 
@@ -17,29 +17,26 @@ credentials += Credentials(
 
 enablePlugins(GraalVMNativeImagePlugin)
 
-mainClass := Some("com.sneaksanddata.arcane.stream_pull.main")
+mainClass                      := Some("com.sneaksanddata.arcane.stream_pull.main")
 GraalVMNativeImage / mainClass := Some("com.sneaksanddata.arcane.stream_pull.main")
 
 lazy val plugin = (project in file("."))
   .settings(
-    name := "arcane-stream-pull",
-    idePackagePrefix := Some("com.sneaksanddata.arcane.stream_pull"),
-
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.2.1-87-g47705b6",
-    libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.74.Final",
+    name                                      := "arcane-stream-pull",
+    idePackagePrefix                          := Some("com.sneaksanddata.arcane.stream_pull"),
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3"              % "2.2.1-89-gbb5b129",
+    libraryDependencies += "io.netty"          % "netty-tcnative-boringssl-static" % "2.0.74.Final",
 
     // bugfix for upgrade header
     // https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5
     libraryDependencies += "org.apache.httpcomponents.client5" % "httpclient5" % "5.4.2",
 
-
     // Test dependencies
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
-    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.26" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.26" % Test,
+    libraryDependencies += "org.scalatest"    %% "scalatest"               % "3.2.20"           % Test,
+    libraryDependencies += "org.scalatest"    %% "scalatest-flatspec"      % "3.2.20"           % Test,
+    libraryDependencies += "dev.zio"          %% "zio-test"                % "2.1.26"           % Test,
+    libraryDependencies += "dev.zio"          %% "zio-test-sbt"            % "2.1.26"           % Test,
     libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.2.1-1-g8900c85" % Test,
-
     graalVMNativeImageOptions ++= Seq(
       "--no-fallback",
       "-O2",
@@ -51,15 +48,16 @@ lazy val plugin = (project in file("."))
       "-H:+AddAllCharsets",
       "-H:+ReportExceptionStackTraces",
       // enable this if you experience build errors to find the root cause
-      //"-H:+PrintClassInitialization",
+      // "-H:+PrintClassInitialization",
       "-H:ResourceConfigurationFiles=../../configs/resource-config.json",
       "-H:ReflectionConfigurationFiles=../../configs/reflect-config.json",
       "-H:JNIConfigurationFiles=../../configs/jni-config.json",
       "-H:DynamicProxyConfigurationFiles=../../configs/proxy-config.json",
       "-H:SerializationConfigurationFiles=../../configs/serialization-config.json",
-      "--exclude-config", "azure-core-1.54.1.jar", ".*.properties"
+      "--exclude-config",
+      "azure-core-1.54.1.jar",
+      ".*.properties"
     ),
-
     assembly / mainClass := Some("com.sneaksanddata.arcane.stream_pull.main"),
 
     // Put JAR in target/ directly, instead of in target/scala-x.x.x sub-directory
@@ -68,24 +66,23 @@ lazy val plugin = (project in file("."))
     // We do not use the version name here, because it's executable file name
     // and we want to keep it consistent with the name of the project
     assembly / assemblyJarName := "com.sneaksanddata.arcane.stream-pull.assembly.jar",
-
     assembly / assemblyMergeStrategy := {
-      case "NOTICE" => MergeStrategy.discard
-      case "LICENSE" => MergeStrategy.discard
+      case "NOTICE"                                                                        => MergeStrategy.discard
+      case "LICENSE"                                                                       => MergeStrategy.discard
       case ps if ps.contains("META-INF/services/java.net.spi.InetAddressResolverProvider") => MergeStrategy.discard
-      case ps if ps.contains("META-INF/services/") => MergeStrategy.concat("\n")
-      case ps if ps.startsWith("META-INF/native") => MergeStrategy.first
+      case ps if ps.contains("META-INF/services/")                                         => MergeStrategy.concat("\n")
+      case ps if ps.startsWith("META-INF/native")                                          => MergeStrategy.first
 
       // Removes duplicate files from META-INF
       // Mostly io.netty.versions.properties, license files, INDEX.LIST, MANIFEST.MF, etc.
-      case ps if ps.startsWith("META-INF") => MergeStrategy.discard
-      case ps if ps.endsWith("logback.xml") => MergeStrategy.discard
-      case ps if ps.endsWith("module-info.class") => MergeStrategy.discard
+      case ps if ps.startsWith("META-INF")         => MergeStrategy.discard
+      case ps if ps.endsWith("logback.xml")        => MergeStrategy.discard
+      case ps if ps.endsWith("module-info.class")  => MergeStrategy.discard
       case ps if ps.endsWith("package-info.class") => MergeStrategy.discard
 
       // for javax/activation and javax/xml package take the first one
       case PathList("javax", "activation", _*) => MergeStrategy.last
-      case PathList("javax", "xml", _*) => MergeStrategy.last
+      case PathList("javax", "xml", _*)        => MergeStrategy.last
 
       // For other files we use the default strategy (deduplicate)
       case x => MergeStrategy.deduplicate
