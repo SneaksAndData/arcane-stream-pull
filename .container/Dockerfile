@@ -10,8 +10,8 @@ RUN sbt assembly
 
 FROM gcr.io/distroless/java25-debian13
 
-COPY --from=build /build/target/com.sneaksanddata.arcane.stream-dynamodb.assembly.jar /app/
+COPY --from=build /build/target/com.sneaksanddata.arcane.stream-pull.assembly.jar /app/
 
 WORKDIR /app
 
-CMD ["com.sneaksanddata.arcane.stream-dynamodb.assembly.jar"]
+CMD ["-jar", "com.sneaksanddata.arcane.stream-pull.assembly.jar"]
