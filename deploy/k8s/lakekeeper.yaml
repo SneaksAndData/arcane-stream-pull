@@ -1,0 +1,94 @@
+# Lakekeeper iceberg REST catalog. The migrate Job seeds the postgres schema,
+# the Deployment serves the catalog API on :8181 (listen port set via env).
+#
+# BASE_URI must be a hostname reachable from every client (plugin, ingestion,
+# trino). All three live in the same cluster, so the in-cluster Service name
+# `lakekeeper:8181` is what we publish to clients via the /v1/config overrides.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lakekeeper-migrate
+  labels: { app: lakekeeper }
+spec:
+  backoffLimit: 30
+  template:
+    metadata: { labels: { app: lakekeeper } }
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-pg
+          image: postgres:16.3-bullseye
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until pg_isready -h postgres -U postgres; do
+                echo "waiting for postgres"; sleep 2
+              done
+      containers:
+        - name: migrate
+          image: quay.io/lakekeeper/catalog:v0.11.4
+          args: ["migrate"]
+          env:
+            - { name: LAKEKEEPER__PG_DATABASE_URL_READ,  value: "postgresql://postgres:postgres@postgres:5432/postgres" }
+            - { name: LAKEKEEPER__PG_DATABASE_URL_WRITE, value: "postgresql://postgres:postgres@postgres:5432/postgres" }
+            - { name: RUST_LOG, value: "info" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lakekeeper
+  labels: { app: lakekeeper }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: lakekeeper } }
+  template:
+    metadata: { labels: { app: lakekeeper } }
+    spec:
+      initContainers:
+        - name: wait-migrate
+          image: postgres:16.3-bullseye
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until PGPASSWORD=postgres psql -h postgres -U postgres -d postgres -c \
+                  "SELECT 1 FROM information_schema.tables WHERE table_name='warehouse'" \
+                  | grep -q "1 row"; do
+                echo "waiting for lakekeeper schema"; sleep 2
+              done
+      containers:
+        - name: lakekeeper
+          image: quay.io/lakekeeper/catalog:v0.11.4
+          args: ["serve"]
+          env:
+            - { name: LAKEKEEPER__LISTEN_PORT,            value: "8181" }
+            - { name: LAKEKEEPER__METRICS_PORT,           value: "8182" }
+            - { name: LAKEKEEPER__BASE_URI,               value: "http://lakekeeper:8181" }
+            - { name: ICEBERG_REST__BASE_URI,             value: "http://lakekeeper:8181" }
+            - { name: LAKEKEEPER__PG_DATABASE_URL_READ,   value: "postgresql://postgres:postgres@postgres:5432/postgres" }
+            - { name: LAKEKEEPER__PG_DATABASE_URL_WRITE,  value: "postgresql://postgres:postgres@postgres:5432/postgres" }
+            - { name: RUST_LOG, value: "info" }
+          ports:
+            - { name: http,    containerPort: 8181 }
+            - { name: metrics, containerPort: 8182 }
+          readinessProbe:
+            httpGet: { path: /health, port: 8181 }
+            initialDelaySeconds: 2
+            periodSeconds: 3
+          livenessProbe:
+            httpGet: { path: /health, port: 8181 }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lakekeeper
+  labels: { app: lakekeeper }
+spec:
+  selector: { app: lakekeeper }
+  ports:
+    - { name: http,    port: 8181, targetPort: 8181 }
+    - { name: metrics, port: 8182, targetPort: 8182 }

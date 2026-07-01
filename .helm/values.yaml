@@ -245,4 +245,4 @@ devRunner:
     schema: "test"
     table: "arcane_ingestion"
     trinoUrl: "http://trino:8080"
-    timeoutSeconds: 300
+    timeoutSeconds: 15

@@ -1,0 +1,104 @@
+# Bootstrap the lakekeeper warehouse + namespace. Equivalent to
+# arcane-e2e/bootstrap-target-table.py:ensure_warehouse_and_namespace. The target
+# iceberg table is still created by arcane-ingestion-zio from its DataRoute CR;
+# we only seed the prerequisite warehouse/namespace here so that creation
+# succeeds.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bootstrap-lakekeeper
+data:
+  bootstrap.py: |
+    import os, sys, time, requests
+
+    LK_BASE   = os.environ.get("LK_BASE", "http://lakekeeper:8181")
+    WAREHOUSE = "demo"
+    NAMESPACE = "test"
+
+    def wait_for_lakekeeper():
+        deadline = time.time() + 180
+        while time.time() < deadline:
+            try:
+                if requests.get(f"{LK_BASE}/health", timeout=2).ok:
+                    return
+            except requests.RequestException:
+                pass
+            print("waiting for lakekeeper..."); time.sleep(2)
+        sys.exit("lakekeeper did not become healthy")
+
+    def ensure_warehouse_and_namespace():
+        r = requests.post(
+            f"{LK_BASE}/management/v1/bootstrap",
+            json={"accept-terms-of-use": True},
+        )
+        if r.status_code not in (200, 400):
+            r.raise_for_status()
+
+        r = requests.post(
+            f"{LK_BASE}/management/v1/warehouse",
+            json={
+                "warehouse-name": WAREHOUSE,
+                "project-id": "00000000-0000-0000-0000-000000000000",
+                "storage-profile": {
+                    "type": "s3",
+                    "bucket": "tmp",
+                    "key-prefix": "initial-warehouse",
+                    "assume-role-arn": None,
+                    "endpoint": "http://minio:9000",
+                    "region": "us-east-1",
+                    "path-style-access": True,
+                    "flavor": "minio",
+                    "sts-enabled": False,
+                },
+                "storage-credential": {
+                    "type": "s3",
+                    "credential-type": "access-key",
+                    "aws-access-key-id": "minioadmin",
+                    "aws-secret-access-key": "minioadmin",
+                },
+            },
+        )
+        if r.status_code not in (200, 201, 400, 409):
+            r.raise_for_status()
+
+        warehouse_prefix = requests.get(
+            f"{LK_BASE}/catalog/v1/config?warehouse={WAREHOUSE}"
+        ).json()["defaults"]["prefix"]
+        r = requests.post(
+            f"{LK_BASE}/catalog/v1/{warehouse_prefix}/namespaces",
+            json={"namespace": [NAMESPACE]},
+        )
+        if r.status_code not in (200, 409):
+            r.raise_for_status()
+        print(f"warehouse={WAREHOUSE} namespace={NAMESPACE} ready")
+
+    if __name__ == "__main__":
+        wait_for_lakekeeper()
+        ensure_warehouse_and_namespace()
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bootstrap-lakekeeper
+  labels: { app: bootstrap }
+spec:
+  backoffLimit: 10
+  template:
+    metadata: { labels: { app: bootstrap } }
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          image: python:3.11-slim-bookworm
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              pip install --quiet --no-cache-dir requests
+              python /scripts/bootstrap.py
+          volumeMounts:
+            - { name: scripts, mountPath: /scripts, readOnly: true }
+      volumes:
+        - name: scripts
+          configMap:
+            name: bootstrap-lakekeeper

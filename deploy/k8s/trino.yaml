@@ -1,0 +1,85 @@
+# Trino with the iceberg REST connector pointed at lakekeeper. Catalog properties
+# live in a ConfigMap mounted at /etc/trino/catalog/iceberg.properties (same path
+# the legacy docker-compose mounted).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trino-catalog
+  labels: { app: trino }
+data:
+  iceberg.properties: |
+    connector.name=iceberg
+    iceberg.catalog.type=rest
+    iceberg.rest-catalog.uri=http://lakekeeper:8181/catalog
+    iceberg.rest-catalog.warehouse=demo
+
+    fs.native-s3.enabled=true
+    s3.region=us-east-1
+    s3.path-style-access=true
+    s3.endpoint=http://minio:9000
+    s3.sts.endpoint=http://minio:9000
+    s3.aws-access-key=minioadmin
+    s3.aws-secret-key=minioadmin
+---
+# The dev-runner waits for the iceberg target table via a 10s poll, and the
+# plugin issues frequent watermark/merge queries — both flood the trino log via
+# QueryMonitor's per-query TIMELINE INFO line. Quiet that logger to WARN.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trino-logging
+  labels: { app: trino }
+data:
+  log.properties: |
+    io.trino.event.QueryMonitor=WARN
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trino
+  labels: { app: trino }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: trino } }
+  template:
+    metadata: { labels: { app: trino } }
+    spec:
+      containers:
+        - name: trino
+          image: trinodb/trino:474
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /v1/info, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /v1/info, port: 8080 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          volumeMounts:
+            - name: catalog
+              mountPath: /etc/trino/catalog
+              readOnly: true
+            - name: logging
+              mountPath: /etc/trino/log.properties
+              subPath: log.properties
+              readOnly: true
+      volumes:
+        - name: catalog
+          configMap:
+            name: trino-catalog
+        - name: logging
+          configMap:
+            name: trino-logging
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trino
+  labels: { app: trino }
+spec:
+  selector: { app: trino }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }

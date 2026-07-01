@@ -1,64 +1,23 @@
 ## Pull Stream Plugin for Arcane
 This repository contains implementation of a *Queue*-Iceberg streaming plugin for Arcane.
 
-Use this app to livestream DynamoDB exports to an Iceberg table, backed by [arcane-push-stream](https://github.com/SneaksAndData/arcane-push-stream) as a streaming source and [Lakekeeper](https://github.com/lakekeeper/lakekeeper) as a data catalog.
+Use this app to livestream DynamoDB exports to an Iceberg table, backed by Trino. Messages are produced by [arcane-push-stream](https://github.com/SneaksAndData/arcane-push-stream) as a streaming source and [Lakekeeper](https://github.com/lakekeeper/lakekeeper) as a data catalog.
+
+### Local kind / e2e setup with arcane-push-stream
+
+1. Clone this repo and arcane-push-stream.
+2. Run:
+```bash
+just kind-up
+```
+3. and start arcane-push-stream also in the same kind cluster (same ns as well)
+4. port forward push-stream if you want to produce messages (and optionally minio srv to
+   open the UI)
+4. start emitting messages with `uv run produce.py`
 
 ### Quickstart
 
-This source continuously ingests files with `multiline-JSON` content (DynamoDB export format) into a target Iceberg table. In order to configure the stream, you must provide the following:
-- *Desired* AVRO schema for the source. Note that this schema should conform with JSON created *after* JSON pointers and array explode have been applied. All fields in the schema must be defined as `nullable`. You can use this [handy tool](https://jonathanfiss.github.io/convert-json-to-avro-schema/) to generate the schema.
-- Source S3 path
-- JSON pointer expression, if desired data is a subset of a source json. For example, given
-```json
-{
-  "colA": "a",
-  "colB": {
-    "colC": "c",
-    "propA": 1,
-    "propB": "ABC"
-  }
-}
-```
-and `jsonPointerExpression` set to `/colB`, source will be transformed to:
-```json
-{
-  "colC": "c",
-  "propA": 1,
-  "propB": "ABC"
-}
-```
-- JSON pointers for array explode, if any. For example, given
-```json
-{
-  "colA": "a",
-  "colB": [{
-    "colC": "c1",
-    "propA": 1,
-    "propB": "ABC1"
-  },{
-    "colC": "c2",
-    "propA": 2,
-    "propB": "ABC2"
-  }]
-}
-```
-and `jsonArrayPointers` set to `"/colB": {}`, source will be transformed to:
-```json
-{"colC": "c1", "propA": 1, "propB": "ABC1"}
-{"colC": "c2", "propA": 2, "propB": "ABC2"}
-```
-emitting 2 rows from 1 source file entry.
-
 ### Development setup
-
-#### Tooling
-Install the following tools:
-- `mise` - for managing tooling versions, environment variables: https://github.com/jdx/mise
-- `just` - for orchestrating tasks: https://github.com/casey/just
-- Docker/Docker compose - for integration testing: https://www.docker.com/products/docker-desktop/
-
-Once the above are installed, run `mise install`.
-It will install other necessary tools (e.g. JDK and SBT) at recommended versions for this project only.
 
 #### Getting access to GitHub Packages registry
 In order to build, test and run the project, `GITHUB_TOKEN` environment variable needs to be set.
@@ -70,15 +29,6 @@ For example, fine-grained token with "Public repositories" access and without ex
 
 Export `GITHUB_TOKEN` environment variable before running any `sbt` commands.
 For example, put `export GITHUB_TOKEN=github_pat_xxx` line in your `.zshrc`/`.bashrc` file.
-
-#### Common tasks
-- Building the project (fat JAR): `just build`
-- Building Docker image: `just docker-build [tag]`
-- Running integration tests: `just it`
-- Running streaming application locally:
-  - via `just stream [--debug]` or `just backfill [--debug]` (backfill mode). **Note**: `dev.env` is required, see `dev.env.example` for an example application configuration.
-- Cleaning build artifacts: `just clean`
-- Code style check: `just check`
 
 ### Arcane operator and streams on Kind
 Local K8S cluster (i.e. [Kind](https://github.com/kubernetes-sigs/kind)) can be used to verify that Arcane operator and
@@ -122,8 +72,6 @@ helm upgrade --install arcane-dynamodb ./.helm \
     --set image.pullPolicy=IfNotPresent
 ```
 
-#### Running streams in Kind
-To be added...
 
 ### Development
 Project uses `Scala 3.8.3` and tested on JDK 25.
