@@ -120,5 +120,16 @@ fabric.properties
 /.idea/dataSources.xml
 /.idea/**/*.iml
 
+.env
+.scala-build/
 # mise local dev environment (may contains sensitive info, e.g. credentials)
 dev.env
+
+.metals/
+metals.sbt
+.bloop/
+project/secret
+.bsp
+.idea
+.nvmrc
+**/target/**

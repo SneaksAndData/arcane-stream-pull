@@ -6,3 +6,19 @@ updates:
       # Check for updates to GitHub Actions every week
       interval: "weekly"
       day: "monday"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: sbt
+    cooldown:
+      default-days: 7
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: "monday"
+    groups:
+      sbt:
+        patterns:
+          - "*"
