@@ -37,6 +37,7 @@ jobs:
       - name: Build the Docker Compose stack
         run: |
           docker compose up --quiet-pull -d
+          docker compose wait prepare_buckets s3_reader_prepare lakekeeper_migrate lakekeeper_prepare
       - name: Get Compose Logs
         if: always()
         run: docker compose logs
