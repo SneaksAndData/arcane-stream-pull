@@ -10,7 +10,7 @@
 # trino, postgres. The plugin pod reaches them via cluster DNS — no host networking.
 
 image:
-  repository: "arcane-stream-dynamodb"
+  repository: "arcane-stream-pull"
   tag: "latest"
   pullPolicy: "IfNotPresent"
 

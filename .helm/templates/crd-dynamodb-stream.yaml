@@ -444,7 +444,7 @@ spec:
                         strategy:
                           unbounded: null
                           buffered:
-                            maxBufferSize: 10000
+                            maxBufferSize: 1000
                       properties:
                         enabled:
                           type: boolean

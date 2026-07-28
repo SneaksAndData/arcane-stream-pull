@@ -5,7 +5,7 @@ docker-build version="dev":
     docker build \
         -f .container/Dockerfile \
         --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" \
-        -t ghcr.io/sneaksanddata/arcane-stream-dynamodb:{{ version }} \
+        -t ghcr.io/sneaksanddata/{{ KIND_IMAGE }}:{{ version }} \
         .
 
 clean:
@@ -43,7 +43,7 @@ stream debug="":
     fi
 
     just build
-    mise exec --env dev -- env STREAMCONTEXT__BACKFILL=${STREAMCONTEXT__BACKFILL:-false} java -DLOG_LEVEL="${log_level}" -Dlogback.configurationFile=src/main/resources/logback.xml -Dscala.concurrent.context.numThreads=2 -Dscala.concurrent.context.maxThreads=2 -jar target/com.sneaksanddata.arcane.stream-dynamodb.assembly.jar
+    mise exec --env dev -- env STREAMCONTEXT__BACKFILL=${STREAMCONTEXT__BACKFILL:-false} java -DLOG_LEVEL="${log_level}" -Dlogback.configurationFile=src/main/resources/logback.xml -Dscala.concurrent.context.numThreads=2 -Dscala.concurrent.context.maxThreads=2 -jar target/com.sneaksanddata.arcane.stream-pull.assembly.jar
 
 backfill debug="":
     STREAMCONTEXT__BACKFILL=true just stream "{{ debug }}"
@@ -58,7 +58,7 @@ backfill debug="":
 # `(cd ../arcane-ingestion-zio && just up)` lands in the same cluster.
 
 KIND_CLUSTER  := env_var_or_default("KIND_CLUSTER", "arcane-push-stream")
-KIND_IMAGE    := "arcane-stream-dynamodb"
+KIND_IMAGE    := "arcane-stream-pull"
 KIND_TAG      := "latest"
 HELM_RELEASE  := "arcane-stream-pull"
 

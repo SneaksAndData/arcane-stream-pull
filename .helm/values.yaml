@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   # Repository to pull the image from
-  repository: "ghcr.io/sneaksanddata/arcane-stream-dynamodb"
+  repository: "ghcr.io/sneaksanddata/arcane-stream-pull"
 
   # Tag to pull (defaults to the chart appVersion)
   tag: ""
