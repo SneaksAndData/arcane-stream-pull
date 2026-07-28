@@ -42,7 +42,7 @@ services:
       - prepare_buckets
     restart: "no"
     volumes:
-      - ./populate-s3-reader-bucket.py:/populate-s3-reader-bucket.py
+      - ./scripts/populate-s3-reader-bucket.py:/populate-s3-reader-bucket.py
     command: [ "/bin/sh", "-c", "pip install boto3 pandas pyarrow fastparquet && python /populate-s3-reader-bucket.py"  ]
 
   trino:
@@ -101,7 +101,7 @@ services:
         condition: service_healthy
     restart: "no"
     volumes:
-      - ./bootstrap-lk.py:/bootstrap-lk.py
+      - ./scripts/bootstrap-lk.py:/bootstrap-lk.py
     command: [ "/bin/sh", "-c", "pip install requests && python /bootstrap-lk.py"  ]
   dynamodb-local:
     container_name: dynamodb-local
