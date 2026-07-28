@@ -61,4 +61,6 @@ jobs:
           file: target/scala-3.8.3/coverage-report/cobertura.xml
           language: Java
           label: code-coverage/jacoco
+          # remove this once upload works
+          fail-on-error: false
 
