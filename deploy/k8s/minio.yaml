@@ -1,0 +1,78 @@
+# MinIO single-node "play" deployment. Backs the lakekeeper warehouse and is also
+# the S3 endpoint the plugin uses for direct iceberg writes.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  labels: { app: minio }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: minio } }
+  template:
+    metadata: { labels: { app: minio } }
+    spec:
+      containers:
+        - name: minio
+          image: quay.io/minio/minio
+          args:
+            - server
+            - /data
+            - --console-address
+            - ":9001"
+          env:
+            - { name: MINIO_ROOT_USER,     value: "minioadmin" }
+            - { name: MINIO_ROOT_PASSWORD, value: "minioadmin" }
+          ports:
+            - { name: api,     containerPort: 9000 }
+            - { name: console, containerPort: 9001 }
+          readinessProbe:
+            httpGet: { path: /minio/health/ready, port: 9000 }
+            initialDelaySeconds: 2
+            periodSeconds: 3
+          livenessProbe:
+            httpGet: { path: /minio/health/live, port: 9000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  labels: { app: minio }
+spec:
+  selector: { app: minio }
+  ports:
+    - { name: api,     port: 9000, targetPort: 9000 }
+    - { name: console, port: 9001, targetPort: 9001 }
+---
+# Buckets MUST exist before lakekeeper starts; lakekeeper's storage profile
+# references `tmp` and `lakehouse`. Idempotent.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-buckets
+  labels: { app: minio }
+spec:
+  backoffLimit: 30
+  template:
+    metadata: { labels: { app: minio } }
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: quay.io/minio/minio
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until mc alias set local http://minio:9000 minioadmin minioadmin >/dev/null 2>&1; do
+                echo "waiting for minio"; sleep 2
+              done
+              mc mb --ignore-existing local/tmp
+              mc mb --ignore-existing local/lakehouse

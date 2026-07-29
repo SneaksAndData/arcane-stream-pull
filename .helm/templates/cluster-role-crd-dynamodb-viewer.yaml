@@ -1,0 +1,29 @@
+{{- if .Values.rbac.clusterRole.dynamodbStreamViewer.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "app.clusterRole.dynamodbStreamViewer" . }}
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    {{- include "app.labels" $ | nindent 4 }}
+    {{- with .Values.rbac.clusterRole.dynamodbStreamViewer.additionalLabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.rbac.clusterRole.dynamodbStreamViewer.additionalAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  - verbs:
+      - get
+      - list
+      - watch
+    apiGroups:
+      - streaming.sneaksanddata.com
+    resources:
+      - dynamodb-streams
+      - dynamodb-beta-streams
+      - dynamodb-streams/status
+      - dynamodb-beta-streams/status
+{{- end }}

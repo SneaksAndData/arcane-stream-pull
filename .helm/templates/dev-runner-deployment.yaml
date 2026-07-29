@@ -1,0 +1,91 @@
+{{- if .Values.devRunner.enabled -}}
+{{- $runnerImage := .Values.devRunner.image.repository | default .Values.image.repository -}}
+{{- $runnerTag   := .Values.devRunner.image.tag        | default (default (printf "v%s" .Chart.AppVersion) .Values.image.tag) -}}
+{{- $runnerPull  := .Values.devRunner.image.pullPolicy | default .Values.image.pullPolicy -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app.fullname" . }}-dev-runner
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dev-runner
+spec:
+  replicas: {{ .Values.devRunner.replicaCount }}
+  # Single Pod, no zero-downtime rolling needed for dev. Recreate avoids two pods
+  # racing on the same DynamoDB shard during chart upgrades.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: dev-runner
+  template:
+    metadata:
+      labels:
+        {{- include "app.labels" . | nindent 8 }}
+        app.kubernetes.io/component: dev-runner
+      annotations:
+        # Roll the pod when the config secret changes.
+        checksum/config: {{ include (print $.Template.BasePath "/dev-runner-secret.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "app.serviceAccountName" . }}
+      {{- with .Values.devRunner.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # The plugin crashes on boot if its target table is missing, and the
+      # arcane-ingestion service creates it lazily from the DataRoute CR. Block
+      # startup until trino can see the table — keeps the pod out of CrashLoop.
+      {{- if .Values.devRunner.waitForTable.enabled }}
+      initContainers:
+        - name: wait-for-target-table
+          image: trinodb/trino:474
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              deadline=$(( $(date +%s) + {{ .Values.devRunner.waitForTable.timeoutSeconds }} ))
+              fqtn="{{ .Values.devRunner.waitForTable.catalog }}.{{ .Values.devRunner.waitForTable.schema }}.{{ .Values.devRunner.waitForTable.table }}"
+              echo "waiting for $fqtn via {{ .Values.devRunner.waitForTable.trinoUrl }}"
+              while :; do
+                if trino --server {{ .Values.devRunner.waitForTable.trinoUrl }} --user wait \
+                    --execute "DESCRIBE $fqtn" >/dev/null 2>&1; then
+                  echo "target table is ready"; exit 0
+                fi
+                if [ "$(date +%s)" -ge "$deadline" ]; then
+                  echo "timed out waiting for $fqtn"; exit 1
+                fi
+                sleep 10
+              done
+      {{- end }}
+      containers:
+        - name: stream-pull
+          image: "{{ $runnerImage }}:{{ $runnerTag }}"
+          imagePullPolicy: {{ $runnerPull }}
+          {{- with .Values.devRunner.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "app.fullname" . }}-dev-runner
+          {{- with .Values.devRunner.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.devRunner.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
