@@ -13,7 +13,7 @@ metadata:
   {{- end }}
 spec:
   apiGroupRef: streaming.sneaksanddata.com
-  kindRef: DynamodbStream
+  kindRef: PullStream
   apiVersion: v1
   pluralName: dynamodb-streams
   secretRefs:

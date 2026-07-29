@@ -9,7 +9,7 @@ spec:
   names:
     plural: dynamodb-streams
     singular: dynamodb-stream
-    kind: DynamodbStream
+    kind: PullStream
     shortNames:
       - dstream
   versions:
