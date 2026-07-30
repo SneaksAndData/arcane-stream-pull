@@ -46,14 +46,14 @@ rbac:
   clusterRole:
 
     # Allows the service account to list and view custom resources
-    dynamodbStreamViewer:
+    pullStreamViewer:
       additionalLabels: { }
       additionalAnnotations: { }
       create: true
       nameOverride: ""
 
     # Allows the service account to update custom resources
-    dynamodbStreamEditor:
+    pullStreamEditor:
       additionalLabels: { }
       additionalAnnotations: { }
       create: true
@@ -233,7 +233,7 @@ devRunner:
     ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI: "jdbc:trino://trino:8080/iceberg/test?user=test"
     ARCANE_FRAMEWORK__JDBC_MERGE_SERVICE_USER: "user"
     ARCANE_FRAMEWORK__JDBC_MERGE_SERVICE_PASSWORD: ""
-    DYNAMODB_ENDPOINT: "http://dynamodb-local:8000"
+    DYNAMODB_ENDPOINT: "http://pull-local:8000"
     STREAMCONTEXT__SPEC: ""
 
   # Wait for the iceberg target table to exist before the JVM starts. The plugin

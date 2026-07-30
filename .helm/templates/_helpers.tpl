@@ -95,11 +95,11 @@ Generate the job editor cluster role name
 
 
 {{/*
-Generate the DynamoDB Stream CR viewer cluster role name
+Generate the Pull Stream CR viewer cluster role name
 */}}
-{{- define "app.clusterRole.dynamodbStreamViewer" -}}
-{{- if .Values.rbac.clusterRole.dynamodbStreamViewer.nameOverride }}
-{{- .Values.rbac.clusterRole.dynamodbStreamViewer.nameOverride }}
+{{- define "app.clusterRole.pullStreamViewer" -}}
+{{- if .Values.rbac.clusterRole.pullStreamViewer.nameOverride }}
+{{- .Values.rbac.clusterRole.pullStreamViewer.nameOverride }}
 {{- else }}
 {{- printf "%s-viewer" (include "app.fullname" .) }}
 {{- end }}
@@ -108,9 +108,9 @@ Generate the DynamoDB Stream CR viewer cluster role name
 {{/*
 Generate the CR editor cluster role name
 */}}
-{{- define "app.clusterRole.dynamodbStreamEditor" -}}
-{{- if .Values.rbac.clusterRole.dynamodbStreamEditor.nameOverride }}
-{{- .Values.rbac.clusterRole.dynamodbStreamEditor.nameOverride }}
+{{- define "app.clusterRole.pullStreamEditor" -}}
+{{- if .Values.rbac.clusterRole.pullStreamEditor.nameOverride }}
+{{- .Values.rbac.clusterRole.pullStreamEditor.nameOverride }}
 {{- else }}
 {{- printf "%s-editor" (include "app.fullname" .) }}
 {{- end }}

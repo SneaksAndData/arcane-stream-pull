@@ -15,7 +15,7 @@ spec:
   apiGroupRef: streaming.sneaksanddata.com
   kindRef: PullStreamBeta
   apiVersion: v1
-  pluralName: dynamodb-beta-streams
+  pluralName: pull-beta-streams
   secretRefs:
     - streamConfigurationSecretRef
 

@@ -1,15 +1,15 @@
-{{- if .Values.rbac.clusterRole.dynamodbStreamEditor.create -}}
+{{- if .Values.rbac.clusterRole.pullStreamEditor.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "app.clusterRole.dynamodbStreamEditor" . }}
+  name: {{ include "app.clusterRole.pullStreamEditor" . }}
   labels:
     rbac.authorization.k8s.io/aggregate-to-edit: "true"
     {{- include "app.labels" $ | nindent 4 }}
-    {{- with .Values.rbac.clusterRole.dynamodbStreamEditor.additionalLabels }}
+    {{- with .Values.rbac.clusterRole.pullStreamEditor.additionalLabels }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with .Values.rbac.clusterRole.dynamodbStreamEditor.additionalAnnotations }}
+  {{- with .Values.rbac.clusterRole.pullStreamEditor.additionalAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -22,8 +22,8 @@ rules:
     apiGroups:
       - streaming.sneaksanddata.com
     resources:
-      - dynamodb-streams
-      - dynamodb-beta-streams
-      - dynamodb-streams/status
-      - dynamodb-beta-streams/status
+      - pull-streams
+      - pull-beta-streams
+      - pull-streams/status
+      - pull-beta-streams/status
 {{- end }}
