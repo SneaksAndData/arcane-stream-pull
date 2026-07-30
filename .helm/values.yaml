@@ -46,14 +46,14 @@ rbac:
   clusterRole:
 
     # Allows the service account to list and view custom resources
-    dynamodbStreamViewer:
+    pullStreamViewer:
       additionalLabels: { }
       additionalAnnotations: { }
       create: true
       nameOverride: ""
 
     # Allows the service account to update custom resources
-    dynamodbStreamEditor:
+    pullStreamEditor:
       additionalLabels: { }
       additionalAnnotations: { }
       create: true
