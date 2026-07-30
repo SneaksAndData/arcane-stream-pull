@@ -183,7 +183,7 @@ jobTemplateSettings:
       - 2
 
 # Long-running "dev runner" Pod for local kind / e2e use. In production the operator
-# launches the plugin from `jobTemplateSettings` per DynamodbStream CR; this section
+# launches the plugin from `jobTemplateSettings` per PullStream CR; this section
 # bypasses that and runs the assembly jar directly, equivalent to the docker-compose
 # `arcane-stream-pull` service in the legacy arcane-e2e stack.
 #
@@ -220,7 +220,7 @@ devRunner:
   # PluginStreamContext (see IntegrationTests.streamContextJson).
   config:
     STREAMCONTEXT__STREAM_ID: "dev"
-    STREAMCONTEXT__STREAM_KIND: "DynamodbStream"
+    STREAMCONTEXT__STREAM_KIND: "PullStream"
     APPLICATION_VERSION: "0.0.0"
     AWS_ACCESS_KEY_ID: "minioadmin"
     AWS_SECRET_ACCESS_KEY: "minioadmin"

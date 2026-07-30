@@ -9,7 +9,7 @@ spec:
   names:
     plural: dynamodb-beta-streams
     singular: dynamodb-beta-stream
-    kind: DynamodbBetaStream
+    kind: PullStreamBeta
     shortNames:
       - dbstream
   versions:
