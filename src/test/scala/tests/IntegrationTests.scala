@@ -184,10 +184,8 @@ object IntegrationTests extends ZIOSpecDefault:
        |  },
        |  "source": {
        |    "configuration": {
-       |      "sourceTableName": "$SourceTableShort",
-       |      "targetTableName": "$TargetTableFull",
-       |      "primaryKeyFieldName": "$PrimaryKeyField",
-       |      "primaryKeyValue": "$PrimaryKeyValue",
+       |      "pullIndexKey": "$PrimaryKeyField",
+       |      "pullIndexValue": "$PrimaryKeyValue",
        |      "watermarkFieldName": "$WatermarkField",
        |      "region": "$Region_",
        |      "tableName": "$SourceTableShort",
