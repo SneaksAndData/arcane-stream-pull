@@ -17,6 +17,9 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
+        - name: Producer
+          type: string
+          jsonPath: .spec.source.configuration.pullIndexValue
         - name: Source table
           type: string
           jsonPath: .spec.source.configuration.tableName
