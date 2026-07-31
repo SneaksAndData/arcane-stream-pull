@@ -9,7 +9,7 @@ spec:
   names:
     singular: pull-stream
     plural: pull-streams
-    kind: PullStreamBeta
+    kind: PullStream
     shortNames:
       - pstream
   versions:

@@ -7,8 +7,8 @@ spec:
   group: streaming.sneaksanddata.com
   scope: Namespaced
   names:
-    plural: pull-beta-streams
     singular: pull-beta-stream
+    plural: pull-beta-streams
     kind: PullStreamBeta
     shortNames:
       - pstream-beta
