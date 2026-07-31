@@ -78,10 +78,8 @@ devRunner:
         },
         "source": {
           "configuration": {
-            "sourceTableName":     "arcane_ingestion",
-            "targetTableName":     "iceberg.test.arcane_ingestion",
-            "primaryKeyFieldName": "producer",
-            "primaryKeyValue":     "consumer1",
+            "pullIndexKey":        "producer",
+            "pullIndexValue":      "consumer1",
             "watermarkFieldName":  "timestampUTC",
             "region":              "us-east-1",
             "tableName":           "arcane_ingestion",
