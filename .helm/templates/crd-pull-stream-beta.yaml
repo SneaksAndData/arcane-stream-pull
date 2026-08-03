@@ -11,7 +11,7 @@ spec:
     plural: pull-beta-streams
     kind: PullStreamBeta
     shortNames:
-      - pstream-beta
+      - pullstream-beta
   versions:
     - name: v1
       served: true

@@ -11,7 +11,7 @@ spec:
     plural: pull-streams
     kind: PullStream
     shortNames:
-      - pstream
+      - pullstream
   versions:
     - name: v1
       served: true
