@@ -82,12 +82,17 @@ object IntegrationTests extends ZIOSpecDefault:
       client: DynamoDbClient,
       tableName: String,
       timestamp: OffsetDateTime,
+      mergeKey: String,
       payloadJson: String
   ): Task[Unit] = ZIO.attemptBlocking {
     val item = Map(
       PrimaryKeyField -> AttributeValue.builder().s(PrimaryKeyValue).build(),
       WatermarkField  -> AttributeValue.builder().s(timestamp.toString).build(),
-      "payload"       -> AttributeValue.builder().s(payloadJson).build()
+      // the source takes the merge key from the item's `id` attribute, exactly as arcane-push-stream
+      // writes it: one pushed message identifies one target row, and the payload carries no identity
+      // of its own. Without it every row merges under a null key and they collapse into one.
+      "id"      -> AttributeValue.builder().s(mergeKey).build(),
+      "payload" -> AttributeValue.builder().s(payloadJson).build()
     ).asJava
     client.putItem(PutItemRequest.builder().tableName(tableName).item(item).build())
     ()
@@ -203,12 +208,13 @@ object IntegrationTests extends ZIOSpecDefault:
        |  }
        |}""".stripMargin
 
-  private def payloadFor(items: Seq[(String, String, OffsetDateTime, String)]): String =
-    items
-      .map { case (mergeKey, id, ts, value) =>
-        s"""{"id":"$id","value":"$value","TimestampUTC":"${ts.toString}","ARCANE_MERGE_KEY":"$mergeKey"}"""
-      }
-      .mkString("[", ",", "]")
+  /** Body of one pushed message, in the shape arcane-push-stream persists: business fields only.
+    *
+    * The merge key and the watermark are deliberately absent — the source prunes those columns from the decode schema
+    * and fills them from the DynamoDB item's own attributes, so a copy inside the payload would be ignored.
+    */
+  private def payloadFor(id: String, value: String): String =
+    s"""{"id":"$id","value":"$value"}"""
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PullStreamIntegrationTests")(
     test("streams rows from DynamoDB into the parquet target table") {
@@ -228,20 +234,20 @@ object IntegrationTests extends ZIOSpecDefault:
           )
           _ <- prepareWatermark(SourceTableShort, sourceSchema, watermarkStart)
 
-          // Seed three rows with strictly increasing timestamps so the source advances its watermark.
+          // Seed three messages with strictly increasing timestamps so the source advances its watermark.
+          // One item per row, as in production: the item's `id` attribute is what identifies the target row.
           now = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusSeconds(5)
-          _ <- insertItem(
-            client,
-            SourceTableShort,
-            now,
-            payloadFor(
-              Seq(
-                ("k1", "1", now.plusSeconds(1), "value-1"),
-                ("k2", "2", now.plusSeconds(2), "value-2"),
-                ("k3", "3", now.plusSeconds(3), "value-3")
-              )
+          _ <- ZIO.foreachDiscard(
+            Seq(("k1", "1", "value-1"), ("k2", "2", "value-2"), ("k3", "3", "value-3")).zipWithIndex
+          ) { case ((mergeKey, id, value), index) =>
+            insertItem(
+              client,
+              SourceTableShort,
+              now.plusSeconds(index.toLong + 1),
+              mergeKey,
+              payloadFor(id, value)
             )
-          )
+          }
 
           contextLayer: ZLayer[Any, Nothing, com.sneaksanddata.arcane.framework.models.app.PluginStreamContext] =
             ZLayer.succeed(PullStreamPluginContext(streamContextJson(DynamoEndpoint)))
