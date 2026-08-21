@@ -24,7 +24,7 @@ lazy val plugin = (project in file("."))
   .settings(
     name                                      := "arcane-stream-pull",
     idePackagePrefix                          := Some("com.sneaksanddata.arcane.stream_pull"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3"              % "2.2.1-109-gd56712f",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3"              % "2.2.1-110-g2633e9c",
     libraryDependencies += "io.netty"          % "netty-tcnative-boringssl-static" % "2.0.74.Final",
 
     // bugfix for upgrade header
