@@ -9,17 +9,20 @@ spec:
   names:
     singular: pull-stream
     plural: pull-streams
-    kind: PullStreamBeta
+    kind: PullStream
     shortNames:
-      - pstream
+      - pullstream
   versions:
     - name: v1
       served: true
       storage: true
       additionalPrinterColumns:
-        - name: Source location
+        - name: Producer
           type: string
-          jsonPath: .spec.source.configuration.sourcePath
+          jsonPath: .spec.source.configuration.pullIndexValue
+        - name: Source table
+          type: string
+          jsonPath: .spec.source.configuration.tableName
         - name: Change Capture Interval
           type: string
           jsonPath: .spec.streamMode.changeCapture.changeCaptureInterval
@@ -566,58 +569,33 @@ spec:
                                   default: 10000
                     configuration:
                       type: object
-                      description: Connection details for blob source
+                      description: Connection details for pull stream source
                       properties:
-                        s3:
-                          type: object
-                          description: S3 source connection properties
-                          properties:
-                            usePathStyle:
-                              type: boolean
-                              default: false
-                            region:
-                              type: string
-                              default: us-east-1
-                            endpoint:
-                              type: string
-                              default: s3.amazonaws.com
-                            maxResultsPerPage:
-                              type: integer
-                              default: 1000
-                              minimum: 1
-                              maximum: 1000
-                            retryMaxAttempts:
-                              type: integer
-                              default: 5
-                              minimum: 1
-                              maximum: 10
-                            retryBaseDelay:
-                              type: string
-                              default: "100 millisecond"
-                            retryMaxDelay:
-                              type: string
-                              default: "1 second"
-                        tempStoragePath:
+                        pullIndexKey:
                           type: string
-                          description: Location to store temporary files
-                          default: /tmp/parquet-stream
-                        sourcePath:
+                          description: Name of the source partition/hash key field used to fetch records.
+                        pullIndexValue:
                           type: string
-                          description: Location root for Parquet files in a form of HDFS address s3a://, abfss:// etc.
-                        primaryKeys:
-                          type: array
-                          items:
-                            type: string
-                        avroSchemaString:
+                          description: Value of the source partition/hash key used to fetch records.
+                        watermarkFieldName:
                           type: string
-                          description: Avro schema for the source, serialized to string. You can generate a schema using this resource https://jonathanfiss.github.io/convert-json-to-avro-schema/
-                        jsonPointerExpression:
+                          description: Name of the source sort/range key field used for watermark tracking.
+                        region:
                           type: string
-                          description: Jackson JSON Pointer expression to select a subset of input json
-                        jsonArrayPointers:
-                          type: object
-                          description: Specify JSON Pointer expressions to array fields that should be exploded into extra rows
-                          x-kubernetes-preserve-unknown-fields: true
+                          description: AWS region of the source DynamoDB table.
+                          default: eu-central-1
+                        tableName:
+                          type: string
+                          description: Name of the source DynamoDB table.
+                        endpoint:
+                          type: string
+                          description: Optional source DynamoDB endpoint override (for local/dev environments).
+                      required:
+                        - pullIndexKey
+                        - pullIndexValue
+                        - watermarkFieldName
+                        - region
+                        - tableName
                 streamConfigurationSecretRef:
                   description: |
                     Name of the secret containing the stream configuration credentials. Must contain a ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI key
