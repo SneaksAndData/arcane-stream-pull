@@ -1,6 +1,6 @@
 package com.sneaksanddata.arcane.stream_pull
 
-import com.sneaksanddata.arcane.framework.exceptions.StreamFailException
+import com.sneaksanddata.arcane.framework.extensions.ZExtensions.*
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import com.sneaksanddata.arcane.framework.services.app.base.StreamRunnerService
@@ -14,7 +14,6 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
   BackfillCompletionProcessor,
   ShardStagingProcessor
 }
-import com.sneaksanddata.arcane.framework.services.blobsource.DefaultS3Reader
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.iceberg.{
@@ -82,11 +81,6 @@ object main extends ZIOAppDefault {
       }
     }
 
-  private def getExitCode(exception: Throwable): zio.ExitCode =
-    exception match
-      case _: StreamFailException => zio.ExitCode(2)
-      case _                      => zio.ExitCode(1)
-
   private lazy val streamRunner = appLayer.provide(
     GenericStreamRunnerService.layer,
     StreamGraphResolver.composedLayer,
@@ -132,13 +126,5 @@ object main extends ZIOAppDefault {
   )
 
   @main
-  def run: ZIO[Any, Throwable, Unit] =
-    val app = streamRunner
-
-    app.catchAllCause { cause =>
-      for {
-        _ <- zlog(s"Application failed: ${cause.squashTrace.getMessage}", cause)
-        _ <- exit(getExitCode(cause.squashTrace))
-      } yield ()
-    }
+  def run: ZIO[Any, Throwable, Unit] = streamRunner.handleAppFailure(exit)
 }
