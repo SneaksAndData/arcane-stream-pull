@@ -11,6 +11,7 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
   ShardStagingProcessor
 }
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
+import com.sneaksanddata.arcane.framework.services.completion.DefaultStreamFinalizer
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
@@ -110,6 +111,7 @@ object Common:
       CatalogDisposeServiceClient.layer,
       DefaultNameGenerator.layer,
       DefaultStreamBootstrapper.layer,
+      DefaultStreamFinalizer.layer,
       ThroughputShaperBuilder.layer
     )
 
