@@ -15,6 +15,7 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
   ShardStagingProcessor
 }
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
+import com.sneaksanddata.arcane.framework.services.completion.DefaultStreamFinalizer
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
@@ -122,6 +123,7 @@ object main extends ZIOAppDefault {
     DataDog.UdsPublisher.layer,
     WatermarkProcessor.layer,
     DefaultStreamBootstrapper.layer,
+    DefaultStreamFinalizer.layer,
     ThroughputShaperBuilder.layer
   )
 
