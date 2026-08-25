@@ -24,7 +24,7 @@ lazy val plugin = (project in file("."))
   .settings(
     name                                      := "arcane-stream-pull",
     idePackagePrefix                          := Some("com.sneaksanddata.arcane.stream_pull"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3"              % "2.2.1-111-gb5cafc5",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3"              % "2.3.2-58-g08c0902",
     libraryDependencies += "io.netty"          % "netty-tcnative-boringssl-static" % "2.0.74.Final",
 
     // bugfix for upgrade header
@@ -32,11 +32,11 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "org.apache.httpcomponents.client5" % "httpclient5" % "5.4.2",
 
     // Test dependencies
-    libraryDependencies += "org.scalatest"    %% "scalatest"               % "3.2.20"           % Test,
-    libraryDependencies += "org.scalatest"    %% "scalatest-flatspec"      % "3.2.20"           % Test,
-    libraryDependencies += "dev.zio"          %% "zio-test"                % "2.1.26"           % Test,
-    libraryDependencies += "dev.zio"          %% "zio-test-sbt"            % "2.1.26"           % Test,
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.2.1-1-g8900c85" % Test,
+    libraryDependencies += "org.scalatest"    %% "scalatest"               % "3.2.20" % Test,
+    libraryDependencies += "org.scalatest"    %% "scalatest-flatspec"      % "3.2.20" % Test,
+    libraryDependencies += "dev.zio"          %% "zio-test"                % "2.1.26" % Test,
+    libraryDependencies += "dev.zio"          %% "zio-test-sbt"            % "2.1.26" % Test,
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1"  % Test,
     graalVMNativeImageOptions ++= Seq(
       "--no-fallback",
       "-O2",
