@@ -3,49 +3,14 @@ package com.sneaksanddata.arcane.stream_pull
 import com.sneaksanddata.arcane.framework.extensions.ZExtensions.*
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
+import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
+import com.sneaksanddata.arcane.framework.plugins.LayerAssemblies
+import com.sneaksanddata.arcane.framework.plugins.pullstream.Services
 import com.sneaksanddata.arcane.framework.services.app.base.StreamRunnerService
-import com.sneaksanddata.arcane.framework.services.app.{
-  GenericStreamRunnerService,
-  PosixStreamLifetimeService,
-  StreamGraphResolver
-}
-import com.sneaksanddata.arcane.framework.services.backfill.DefaultBackfillStateManager
-import com.sneaksanddata.arcane.framework.services.backfill.processors.{
-  BackfillCompletionProcessor,
-  ShardStagingProcessor
-}
-import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
-import com.sneaksanddata.arcane.framework.services.completion.DefaultStreamFinalizer
-import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
-import com.sneaksanddata.arcane.framework.services.iceberg.{
-  IcebergEntityManager,
-  IcebergS3CatalogWriter,
-  IcebergTablePropertyManager
-}
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
-import com.sneaksanddata.arcane.framework.services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
-import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
-import com.sneaksanddata.arcane.framework.services.pullstream.*
+import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, StreamGraphResolver}
+import com.sneaksanddata.arcane.framework.services.iceberg.IcebergTablePropertyManager
 import com.sneaksanddata.arcane.framework.services.pullstream.PullStreamingSource
-import com.sneaksanddata.arcane.framework.services.storage.models.s3.S3StoragePath
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
-import com.sneaksanddata.arcane.framework.services.pullstream.backfill.{
-  NoopBackfillStreamDataProvider,
-  NoopShardedBackfillStreamDataProvider,
-  NoopShardFactory
-}
 import com.sneaksanddata.arcane.pull_stream_plugin_context.models.app.PullStreamPluginContext
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
@@ -54,7 +19,7 @@ import zio.logging.backend.SLF4J
 
 import java.net.URI
 
-object main extends ZIOAppDefault {
+object main extends ZIOAppDefault:
 
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
@@ -64,8 +29,17 @@ object main extends ZIOAppDefault {
     _            <- streamRunner.run
   yield ()
 
-  val pullStreamingSourceLayer =
-    PullStreamingSource.getLayer(context => context.asInstanceOf[PullStreamPluginContext].source.configuration)
+  // The source resolves the sink table's JSON pointer property, so it needs a SinkPropertyManager. That service is also
+  // published by frameworkPipelineServicesLayer, which in turn requires a StreamingSource for the stream finalizer.
+  // Feeding the source its own sink property manager breaks that dependency cycle.
+  val pullStreamingSourceLayer: ZLayer[
+    PluginStreamContext & DynamoDbClient,
+    Throwable,
+    PullStreamingSource & SchemaProvider[ArcaneSchema]
+  ] =
+    IcebergTablePropertyManager.sinkLayer >>> PullStreamingSource.getLayer(context =>
+      context.asInstanceOf[PullStreamPluginContext].source.configuration
+    )
 
   val dynamoDbClientLayer: ZLayer[PluginStreamContext, Throwable, DynamoDbClient] =
     ZLayer.scoped {
@@ -83,50 +57,15 @@ object main extends ZIOAppDefault {
     }
 
   private lazy val streamRunner = appLayer.provide(
-    GenericStreamRunnerService.layer,
-    StreamGraphResolver.composedLayer,
-    DisposeBatchProcessor.layer,
-    FieldFilteringTransformer.layer,
-    MergeBatchProcessor.layer,
-    StagingProcessor.layer,
-    FieldsFilteringService.layer,
-    PosixStreamLifetimeService.layer,
-
-    // schema
-    SchemaMigrationProcessor.layer,
-    // pullStreamPlugin
-    PullStreamStagedBatchFactory.layer,
-    PullStreamSourceDataProvider.layer,
-    PullStreamStreamingDataProvider.layer,
-    DefaultBackfillStateManager.layer,
-    ShardStagingProcessor.layer,
-    BackfillCompletionProcessor.layer,
-    NoopBackfillStreamDataProvider.layer,
-    NoopShardedBackfillStreamDataProvider.layer,
-    NoopShardFactory.layer,
-    pullStreamingSourceLayer,
+    Services.sourceLayer,
+    LayerAssemblies.frameworkPipelineServicesLayer,
+    LayerAssemblies.frameworkStagingServicesLayer,
     PullStreamPluginContext.layer,
     dynamoDbClientLayer,
-
-    // maintenance and cleanup
-    TargetMaintenanceProcessor.layer,
-    CatalogDisposeServiceClient.layer,
-    DefaultNameGenerator.layer,
-    IcebergS3CatalogWriter.layer,
-    IcebergEntityManager.sinkLayer,
-    IcebergEntityManager.stagingLayer,
-    IcebergTablePropertyManager.stagingLayer,
-    IcebergTablePropertyManager.sinkLayer,
-    JdbcMergeServiceClient.layer,
-    DeclaredMetrics.layer,
-    GlobalMetricTagProvider.layer,
-    DataDog.UdsPublisher.layer,
-    WatermarkProcessor.layer,
-    DefaultStreamBootstrapper.layer,
-    DefaultStreamFinalizer.layer,
-    ThroughputShaperBuilder.layer
+    pullStreamingSourceLayer,
+    GenericStreamRunnerService.layer,
+    StreamGraphResolver.composedLayer
   )
 
   @main
   def run: ZIO[Any, Throwable, Unit] = streamRunner.handleAppFailure(exit)
-}

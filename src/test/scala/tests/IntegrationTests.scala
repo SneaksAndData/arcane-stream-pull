@@ -13,6 +13,9 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.*
 import zio.test.*
 import zio.test.TestAspect.timeout
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.{Scope, Task, ZIO, ZLayer}
 
 import java.net.URI
@@ -252,8 +255,12 @@ object IntegrationTests extends ZIOSpecDefault:
             )
           }
 
-          contextLayer: ZLayer[Any, Nothing, com.sneaksanddata.arcane.framework.models.app.PluginStreamContext] =
-            ZLayer.succeed(PullStreamPluginContext(streamContextJson(DynamoEndpoint)))
+          streamContext = PullStreamPluginContext(streamContextJson(DynamoEndpoint))
+          contextLayer = ZLayer.succeed[com.sneaksanddata.arcane.framework.models.app.PluginStreamContext](
+            streamContext
+          ) ++ ZLayer.succeed[DatagramSocketConfig](streamContext) ++ ZLayer.succeed[MetricsConfig](
+            streamContext
+          ) ++ ZLayer.succeed(DatadogPublisherConfig())
 
           runner <- Common.getTestApp(Duration.ofSeconds(15), contextLayer).fork
           _      <- runner.runOrFail(zio.Duration.fromSeconds(20))
