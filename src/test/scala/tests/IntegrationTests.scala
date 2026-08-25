@@ -137,7 +137,8 @@ object IntegrationTests extends ZIOSpecDefault:
        |    "changeCapture": {
        |      "changeCaptureInterval": "2 second",
        |      "changeCaptureJitterVariance": 0.1,
-       |      "changeCaptureJitterSeed": 0
+       |      "changeCaptureJitterSeed": 0,
+       |      "changeCaptureRangeLimit": 100
        |    }
        |  },
        |  "sink": {
@@ -180,7 +181,9 @@ object IntegrationTests extends ZIOSpecDefault:
        |        "chunkCostMax": 10,
        |        "tableRowCountWeight": 0.05,
        |        "tableSizeWeight": 0.05,
-       |        "tableSizeScaleFactor": 1
+       |        "tableSizeScaleFactor": 1,
+       |        "chunkSizeCap": 1000000,
+       |        "maxStatisticsAge": 604800
        |      }
        |    },
        |    "advisedRate": "1000 per 1 second",
