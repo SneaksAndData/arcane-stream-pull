@@ -13,6 +13,9 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.*
 import zio.test.*
 import zio.test.TestAspect.timeout
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.{Scope, Task, ZIO, ZLayer}
 
 import java.net.URI
@@ -137,7 +140,8 @@ object IntegrationTests extends ZIOSpecDefault:
        |    "changeCapture": {
        |      "changeCaptureInterval": "2 second",
        |      "changeCaptureJitterVariance": 0.1,
-       |      "changeCaptureJitterSeed": 0
+       |      "changeCaptureJitterSeed": 0,
+       |      "changeCaptureRangeLimit": 100
        |    }
        |  },
        |  "sink": {
@@ -180,7 +184,9 @@ object IntegrationTests extends ZIOSpecDefault:
        |        "chunkCostMax": 10,
        |        "tableRowCountWeight": 0.05,
        |        "tableSizeWeight": 0.05,
-       |        "tableSizeScaleFactor": 1
+       |        "tableSizeScaleFactor": 1,
+       |        "chunkSizeCap": 1000000,
+       |        "maxStatisticsAge": 604800
        |      }
        |    },
        |    "advisedRate": "1000 per 1 second",
@@ -249,8 +255,12 @@ object IntegrationTests extends ZIOSpecDefault:
             )
           }
 
-          contextLayer: ZLayer[Any, Nothing, com.sneaksanddata.arcane.framework.models.app.PluginStreamContext] =
-            ZLayer.succeed(PullStreamPluginContext(streamContextJson(DynamoEndpoint)))
+          streamContext = PullStreamPluginContext(streamContextJson(DynamoEndpoint))
+          contextLayer = ZLayer.succeed[com.sneaksanddata.arcane.framework.models.app.PluginStreamContext](
+            streamContext
+          ) ++ ZLayer.succeed[DatagramSocketConfig](streamContext) ++ ZLayer.succeed[MetricsConfig](
+            streamContext
+          ) ++ ZLayer.succeed(DatadogPublisherConfig())
 
           runner <- Common.getTestApp(Duration.ofSeconds(15), contextLayer).fork
           _      <- runner.runOrFail(zio.Duration.fromSeconds(20))

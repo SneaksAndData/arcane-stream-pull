@@ -39,6 +39,7 @@ spec:
       changeCaptureInterval: 5 second
       changeCaptureJitterVariance: 0.1
       changeCaptureJitterSeed: 0
+      changeCaptureRangeLimit: 100
   sink:
     mergeServiceClient:
       connectionUrl: "jdbc:trino://trino-backfill.awsp.sneaksanddata.com"
@@ -86,6 +87,8 @@ spec:
         tableRowCountWeight: 0.05
         tableSizeWeight: 0.05
         tableSizeScaleFactor: 1
+        chunkSizeCap: 1000000
+        maxStatisticsAge: 604800
     advisedRate: "1000 per 1 second"
     advisedBurst: 1000
     advisedChunkSize: 10
