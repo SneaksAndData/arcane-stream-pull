@@ -28,7 +28,7 @@ object IntegrationTests extends ZIOSpecDefault:
   private val Region_          = "us-east-1"
   private val PrimaryKeyField  = "producer"
   private val PrimaryKeyValue  = "producer1"
-  private val WatermarkField   = "timestampUTC"
+  private val VersionField     = "timestampUTC"
   private val SourceTableShort = "stream_pull_test"
   private val TargetTableFull  = s"iceberg.test.$SourceTableShort"
 
@@ -60,11 +60,11 @@ object IntegrationTests extends ZIOSpecDefault:
           .tableName(tableName)
           .keySchema(
             KeySchemaElement.builder().attributeName(PrimaryKeyField).keyType(KeyType.HASH).build(),
-            KeySchemaElement.builder().attributeName(WatermarkField).keyType(KeyType.RANGE).build()
+            KeySchemaElement.builder().attributeName(VersionField).keyType(KeyType.RANGE).build()
           )
           .attributeDefinitions(
             AttributeDefinition.builder().attributeName(PrimaryKeyField).attributeType(ScalarAttributeType.S).build(),
-            AttributeDefinition.builder().attributeName(WatermarkField).attributeType(ScalarAttributeType.S).build()
+            AttributeDefinition.builder().attributeName(VersionField).attributeType(ScalarAttributeType.S).build()
           )
           .provisionedThroughput(
             ProvisionedThroughput.builder().readCapacityUnits(5L).writeCapacityUnits(5L).build()
@@ -90,7 +90,7 @@ object IntegrationTests extends ZIOSpecDefault:
   ): Task[Unit] = ZIO.attemptBlocking {
     val item = Map(
       PrimaryKeyField -> AttributeValue.builder().s(PrimaryKeyValue).build(),
-      WatermarkField  -> AttributeValue.builder().s(timestamp.toString).build(),
+      VersionField    -> AttributeValue.builder().s(timestamp.toString).build(),
       // the source takes the merge key from the item's `id` attribute, exactly as arcane-push-stream
       // writes it: one pushed message identifies one target row, and the payload carries no identity
       // of its own. Without it every row merges under a null key and they collapse into one.
@@ -197,7 +197,7 @@ object IntegrationTests extends ZIOSpecDefault:
        |    "configuration": {
        |      "pullIndexKey": "$PrimaryKeyField",
        |      "pullIndexValue": "$PrimaryKeyValue",
-       |      "watermarkFieldName": "$WatermarkField",
+       |      "versionFieldName": "$VersionField",
        |      "region": "$Region_",
        |      "tableName": "$SourceTableShort",
        |      "endpoint": "$endpoint"
@@ -216,8 +216,8 @@ object IntegrationTests extends ZIOSpecDefault:
 
   /** Body of one pushed message, in the shape arcane-push-stream persists: business fields only.
     *
-    * The merge key and the watermark are deliberately absent — the source prunes those columns from the decode schema
-    * and fills them from the DynamoDB item's own attributes, so a copy inside the payload would be ignored.
+    * The merge key and the version are deliberately absent — the source prunes those columns from the decode schema and
+    * fills them from the DynamoDB item's own attributes, so a copy inside the payload would be ignored.
     */
   private def payloadFor(id: String, value: String): String =
     s"""{"id":"$id","value":"$value"}"""
@@ -233,14 +233,14 @@ object IntegrationTests extends ZIOSpecDefault:
 
           _ <- ZIO.attempt(clearTarget(TargetTableFull))
 
-          // The pull source uses `comment` on the target iceberg table as its watermark.
+          // The pull source uses `comment` on the target iceberg table as its version.
           // We set it to "now()" so any item we insert with a strictly greater timestamp will be ingested.
           watermarkStart = PullStreamWatermark(
             OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusSeconds(1)
           )
           _ <- prepareWatermark(SourceTableShort, sourceSchema, watermarkStart)
 
-          // Seed three messages with strictly increasing timestamps so the source advances its watermark.
+          // Seed three messages with strictly increasing timestamps so the source advances its version.
           // One item per row, as in production: the item's `id` attribute is what identifies the target row.
           now = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusSeconds(5)
           _ <- ZIO.foreachDiscard(

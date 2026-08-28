@@ -80,7 +80,7 @@ devRunner:
           "configuration": {
             "pullIndexKey":        "producer",
             "pullIndexValue":      "consumer1",
-            "watermarkFieldName":  "timestampUTC",
+            "versionFieldName":    "timestampUTC",
             "region":              "us-east-1",
             "tableName":           "arcane_ingestion",
             "endpoint":            "http://dynamodb-local:8000"
