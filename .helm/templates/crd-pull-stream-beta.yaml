@@ -590,9 +590,9 @@ spec:
                         pullIndexValue:
                           type: string
                           description: Value of the source partition/hash key used to fetch records.
-                        watermarkFieldName:
+                        versionFieldName:
                           type: string
-                          description: Name of the source sort/range key field used for watermark tracking.
+                          description: Name of the source sort/range key field used for version tracking.
                         region:
                           type: string
                           description: AWS region of the source DynamoDB table.
@@ -603,10 +603,17 @@ spec:
                         endpoint:
                           type: string
                           description: Optional source DynamoDB endpoint override (for local/dev environments).
+                        pageSize:
+                          type: integer
+                          default: 32
+                        jsonPointerExpression:
+                          type: string
+                          nullable: true
+                          default: null
                       required:
                         - pullIndexKey
                         - pullIndexValue
-                        - watermarkFieldName
+                        - versionFieldName
                         - region
                         - tableName
                 streamConfigurationSecretRef:

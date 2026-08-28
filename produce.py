@@ -109,7 +109,7 @@ def build_payload(rng: random.Random) -> dict[str, str]:
         "id": random_id(rng),
         "message": random_message(rng),
         # ISO-8601 UTC with trailing Z — same shape the arcane-e2e seed recipe used
-        # and what the plugin's watermark field expects.
+        # and what the plugin's version field expects.
         "TimestampUTC": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         # Unique per-message merge key so nothing gets overwritten by the MERGE.
         "ARCANE_MERGE_KEY": uuid.uuid4().hex,
