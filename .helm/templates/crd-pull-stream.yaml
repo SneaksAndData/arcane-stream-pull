@@ -603,6 +603,13 @@ spec:
                         endpoint:
                           type: string
                           description: Optional source DynamoDB endpoint override (for local/dev environments).
+                        pageSize:
+                          type: integer
+                          default: 32
+                        jsonPointerExpression:
+                          type: string
+                          nullable: true
+                          default: null
                       required:
                         - pullIndexKey
                         - pullIndexValue

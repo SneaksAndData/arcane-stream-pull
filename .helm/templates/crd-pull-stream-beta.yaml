@@ -604,7 +604,7 @@ spec:
                           type: string
                           description: Optional source DynamoDB endpoint override (for local/dev environments).
                         pageSize:
-                          type: int
+                          type: integer
                           default: 32
                         jsonPointerExpression:
                           type: string
