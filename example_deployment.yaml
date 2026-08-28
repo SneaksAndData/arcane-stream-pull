@@ -96,7 +96,7 @@ spec:
     configuration:
       pullIndexKey: producer
       pullIndexValue: producer1
-      watermarkFieldName: timestampUTC
+      versionFieldName: timestampUTC
       region: eu-central-1
       tableName: arcane_ingestion
       endpoint: http://dynamodb-local:8000
