@@ -3,7 +3,7 @@ import com.typesafe.sbt.packager.graalvmnativeimage.GraalVMNativeImagePlugin.aut
 ThisBuild / version                   := "1.2.1-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
 ThisBuild / exportJars                := true
-ThisBuild / scalaVersion              := "3.8.3"
+ThisBuild / scalaVersion              := "3.9.0"
 ThisBuild / organization              := "com.sneaksanddata"
 
 resolvers += "Arcane framework repo" at "https://maven.pkg.github.com/SneaksAndData/arcane-framework-scala"
@@ -25,11 +25,11 @@ lazy val plugin = (project in file("."))
     name                                      := "arcane-stream-pull",
     idePackagePrefix                          := Some("com.sneaksanddata.arcane.stream_pull"),
     libraryDependencies += "com.sneaksanddata" % "arcane-framework_3"              % "2.3.2-1-g578d768",
-    libraryDependencies += "io.netty"          % "netty-tcnative-boringssl-static" % "2.0.74.Final",
+    libraryDependencies += "io.netty"          % "netty-tcnative-boringssl-static" % "2.0.83.Final",
 
     // bugfix for upgrade header
     // https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5
-    libraryDependencies += "org.apache.httpcomponents.client5" % "httpclient5" % "5.4.2",
+    libraryDependencies += "org.apache.httpcomponents.client5" % "httpclient5" % "5.6.4",
 
     // Test dependencies
     libraryDependencies += "org.scalatest"    %% "scalatest"               % "3.2.20" % Test,
