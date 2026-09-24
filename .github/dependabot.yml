@@ -1,24 +1,27 @@
 version: 2
+
 updates:
+  # GitHub Actions used by the workflows in .github/workflows.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      # Check for updates to GitHub Actions every week
       interval: "weekly"
       day: "monday"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-
-  - package-ecosystem: sbt
+    open-pull-requests-limit: 10
     cooldown:
       default-days: 7
-    directory: "/"
-    schedule:
-      interval: weekly
-      day: "monday"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github_actions"
     groups:
-      sbt:
+      github-actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      github-actions-security:
+        applies-to: security-updates
         patterns:
           - "*"
