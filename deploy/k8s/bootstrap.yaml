@@ -44,10 +44,10 @@ data:
                     "bucket": "tmp",
                     "key-prefix": "initial-warehouse",
                     "assume-role-arn": None,
-                    "endpoint": "http://minio:9000",
+                    "endpoint": "http://s2:9000",
                     "region": "us-east-1",
                     "path-style-access": True,
-                    "flavor": "minio",
+                    "flavor": "s3-compat",
                     "sts-enabled": False,
                 },
                 "storage-credential": {
