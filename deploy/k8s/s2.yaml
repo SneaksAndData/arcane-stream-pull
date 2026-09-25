@@ -1,0 +1,50 @@
+# S2 (mojatter/s2-server) single-node deployment. Backs the lakekeeper warehouse and is
+# also the S3 endpoint the plugin uses for direct iceberg writes.
+# Buckets MUST exist before lakekeeper starts (its storage profile references `tmp` and
+# `lakehouse`); S2 creates them on startup before the S3 API starts listening.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s2
+  labels: { app: s2 }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: s2 } }
+  template:
+    metadata: { labels: { app: s2 } }
+    spec:
+      containers:
+        - name: s2
+          image: mojatter/s2-server
+          env:
+            - { name: S2_SERVER_USER,     value: "minioadmin" }
+            - { name: S2_SERVER_PASSWORD, value: "minioadmin" }
+            - { name: S2_SERVER_BUCKETS,  value: "tmp,lakehouse" }
+          ports:
+            - { name: api,     containerPort: 9000 }
+            - { name: console, containerPort: 9001 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 9000 }
+            initialDelaySeconds: 2
+            periodSeconds: 3
+          livenessProbe:
+            httpGet: { path: /healthz, port: 9000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/s2 }
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s2
+  labels: { app: s2 }
+spec:
+  selector: { app: s2 }
+  ports:
+    - { name: api,     port: 9000, targetPort: 9000 }
+    - { name: console, port: 9001, targetPort: 9001 }

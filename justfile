@@ -100,14 +100,14 @@ kind-create:
         kind create cluster --name {{ KIND_CLUSTER }}
     fi
 
-[doc("Apply the data-plane manifests (minio, postgres, lakekeeper, trino, dynamodb-local)")]
+[doc("Apply the data-plane manifests (s2, postgres, lakekeeper, trino, dynamodb-local)")]
 kind-data-up: kind-create
     kubectl --context kind-{{ KIND_CLUSTER }} apply -k deploy/k8s
     @echo "waiting for data plane to become ready..."
     kubectl --context kind-{{ KIND_CLUSTER }} wait --for=condition=available --timeout=300s \
-        deploy/minio deploy/postgres deploy/lakekeeper deploy/trino deploy/dynamodb-local
+        deploy/s2 deploy/postgres deploy/lakekeeper deploy/trino deploy/dynamodb-local
     kubectl --context kind-{{ KIND_CLUSTER }} wait --for=condition=complete --timeout=300s \
-        job/minio-buckets job/lakekeeper-migrate job/bootstrap-lakekeeper
+        job/lakekeeper-migrate job/bootstrap-lakekeeper
 
 [doc("Load the local plugin image into the kind cluster")]
 kind-load: kind-build kind-create
@@ -131,11 +131,11 @@ kind-stop:
 [doc("Re-create the kind environment from scratch")]
 kind-fresh: kind-stop kind-up
 
-[doc("Port-forward MinIO to localhost (api :9000, console :9001). Ctrl-C to stop.")]
-kind-port-forward-minio:
-    @echo "MinIO API     -> http://localhost:9000"
-    @echo "MinIO console -> http://localhost:9001  (minioadmin / minioadmin)"
-    kubectl --context kind-{{ KIND_CLUSTER }} port-forward svc/minio 9000:9000 9001:9001
+[doc("Port-forward S2 to localhost (api :9000, console :9001). Ctrl-C to stop.")]
+kind-port-forward-s2:
+    @echo "S2 API     -> http://localhost:9000"
+    @echo "S2 console -> http://localhost:9001  (minioadmin / minioadmin)"
+    kubectl --context kind-{{ KIND_CLUSTER }} port-forward svc/s2 9000:9000 9001:9001
 
 [doc("Show kind / helm status")]
 kind-info:

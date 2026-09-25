@@ -6,7 +6,7 @@
 #   helm upgrade --install arcane-stream-pull .helm -f .helm/values.yaml -f .helm/values-dev.yaml
 #
 # Assumes the data-plane manifests under deploy/k8s/ have been applied to the same
-# namespace, providing in-cluster Services named minio, lakekeeper, dynamodb-local,
+# namespace, providing in-cluster Services named s2, lakekeeper, dynamodb-local,
 # trino, postgres. The plugin pod reaches them via cluster DNS — no host networking.
 
 image:
