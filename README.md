@@ -11,7 +11,7 @@ Use this app to livestream DynamoDB exports to an Iceberg table, backed by Trino
 just kind-up
 ```
 3. and start arcane-push-stream also in the same kind cluster (same ns as well)
-4. port forward push-stream if you want to produce messages (and optionally minio srv to
+4. port forward push-stream if you want to produce messages (and optionally the s2 srv to
    open the UI)
 4. start emitting messages with `uv run produce.py`
 
