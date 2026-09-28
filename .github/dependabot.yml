@@ -21,6 +21,8 @@ updates:
       - dependency-name: "org.scala-sbt:sbt"
         update-types:
           - "version-update:semver-major"
+      # Do not let Dependabot bump the Scala compiler/library version
+      - dependency-name: "org.scala-lang:scala3-library_3"
     groups:
       sbt:
         applies-to: version-updates

@@ -56,9 +56,20 @@ jobs:
         shell: bash
         run: sbt scalafmtCheckAll
 
+      - name: Locate coverage report
+        id: coverage
+        shell: bash
+        run: |
+          report_path=$(find target -maxdepth 3 -path "*/coverage-report/cobertura.xml" -print -quit)
+          if [ -z "$report_path" ]; then
+            echo "::error::Could not locate cobertura.xml under target/scala-*/coverage-report/"
+            exit 1
+          fi
+          echo "report_path=$report_path" >> "$GITHUB_OUTPUT"
+
       - uses: actions/upload-code-coverage@v1
         with:
-          file: target/scala-3.8.3/coverage-report/cobertura.xml
+          file: ${{ steps.coverage.outputs.report_path }}
           language: Java
           label: code-coverage/jacoco
 
