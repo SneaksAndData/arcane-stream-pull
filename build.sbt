@@ -29,13 +29,13 @@ lazy val plugin = (project in file("."))
 
     // bugfix for upgrade header
     // https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5
-    libraryDependencies += "org.apache.httpcomponents.client5" % "httpclient5" % "5.6.4",
+    libraryDependencies += "org.apache.httpcomponents.client5" % "httpclient5" % "5.6.5",
 
     // Test dependencies
     libraryDependencies += "org.scalatest"    %% "scalatest"               % "3.2.20" % Test,
     libraryDependencies += "org.scalatest"    %% "scalatest-flatspec"      % "3.2.20" % Test,
-    libraryDependencies += "dev.zio"          %% "zio-test"                % "2.1.26" % Test,
-    libraryDependencies += "dev.zio"          %% "zio-test-sbt"            % "2.1.26" % Test,
+    libraryDependencies += "dev.zio"          %% "zio-test"                % "2.1.27" % Test,
+    libraryDependencies += "dev.zio"          %% "zio-test-sbt"            % "2.1.27" % Test,
     libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1"  % Test,
     graalVMNativeImageOptions ++= Seq(
       "--no-fallback",
