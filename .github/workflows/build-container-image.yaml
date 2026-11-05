@@ -24,14 +24,14 @@ jobs:
           fetch-depth: 0
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v4.6.0
+        uses: docker/login-action@v4.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.12
+        uses: SneaksAndData/github-actions/generate_version@v0.1.13
         id: version
 
       - name: Extract metadata (tags, labels) for Docker
@@ -63,7 +63,7 @@ jobs:
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Chart
-        uses: SneaksAndData/github-actions/build_helm_chart@v0.1.12
+        uses: SneaksAndData/github-actions/build_helm_chart@v0.1.13
         with:
           application: arcane-stream-pull
           app_version: ${{ steps.meta.outputs.version }}
