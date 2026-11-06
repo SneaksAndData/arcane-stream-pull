@@ -1,0 +1,38 @@
+# Demo overlay for the arcane-stream-pull chart, operator mode.
+#
+#   helm upgrade --install arcane-stream-pull .helm \
+#     -f .helm/values.yaml -f .helm/values-dev.yaml \
+#     -f e2e/demo/values-pull-stream-demo.yaml
+#
+# The chart renders the StreamClass and the StreamingJobTemplate; arcane-operator
+# turns every PullStream into a Job from that template. Connection settings come
+# from the pull-stream-config Secret, which each PullStream names in
+# spec.streamConfigurationSecretRef.
+
+devRunner:
+  enabled: false
+
+streamClass:
+  create: true
+
+jobTemplateSettings:
+  create: true
+  backoffLimit: 0
+
+  extraEnv:
+    - name: JAVA_TOOL_OPTIONS
+      value: "-Dlogback.configurationFile=/etc/arcane/logback.xml"
+
+  extraVolumes:
+    - name: tmp
+      emptyDir: {}
+    - name: logback
+      configMap:
+        name: pull-stream-logback
+
+  extraVolumeMounts:
+    - name: tmp
+      mountPath: /tmp
+    - name: logback
+      mountPath: /etc/arcane
+      readOnly: true

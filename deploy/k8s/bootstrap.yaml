@@ -1,8 +1,12 @@
-# Bootstrap the lakekeeper warehouse + namespace. Equivalent to
-# arcane-e2e/bootstrap-target-table.py:ensure_warehouse_and_namespace. The target
-# iceberg table is still created by arcane-ingestion-zio from its DataRoute CR;
-# we only seed the prerequisite warehouse/namespace here so that creation
-# succeeds.
+# Bootstrap the lakekeeper warehouse + namespaces. Equivalent to
+# arcane-push-stream's deploy/integration/bootstrap-lakekeeper.py. The target
+# iceberg table is still created by arcane-push-stream from its DataRoute CR and
+# the staging table by arcane-stream-pull; we only seed the prerequisite
+# warehouse/namespaces here so that creation succeeds.
+#
+# Two namespaces are created:
+#   test            - arcane-stream-pull staging tables
+#   arcane_pull_test - target tables provisioned from prod_dataroute_variant.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,7 +17,7 @@ data:
 
     LK_BASE   = os.environ.get("LK_BASE", "http://lakekeeper:8181")
     WAREHOUSE = "demo"
-    NAMESPACE = "test"
+    NAMESPACES = ["test", "arcane_pull_test"]
 
     def wait_for_lakekeeper():
         deadline = time.time() + 180
@@ -26,7 +30,7 @@ data:
             print("waiting for lakekeeper..."); time.sleep(2)
         sys.exit("lakekeeper did not become healthy")
 
-    def ensure_warehouse_and_namespace():
+    def ensure_bootstrap():
         r = requests.post(
             f"{LK_BASE}/management/v1/bootstrap",
             json={"accept-terms-of-use": True},
@@ -34,6 +38,7 @@ data:
         if r.status_code not in (200, 400):
             r.raise_for_status()
 
+    def ensure_warehouse():
         r = requests.post(
             f"{LK_BASE}/management/v1/warehouse",
             json={
@@ -61,20 +66,33 @@ data:
         if r.status_code not in (200, 201, 400, 409):
             r.raise_for_status()
 
-        warehouse_prefix = requests.get(
-            f"{LK_BASE}/catalog/v1/config?warehouse={WAREHOUSE}"
-        ).json()["defaults"]["prefix"]
-        r = requests.post(
-            f"{LK_BASE}/catalog/v1/{warehouse_prefix}/namespaces",
-            json={"namespace": [NAMESPACE]},
-        )
-        if r.status_code not in (200, 409):
-            r.raise_for_status()
-        print(f"warehouse={WAREHOUSE} namespace={NAMESPACE} ready")
+    def warehouse_prefix():
+        # Lakekeeper keys REST routes on the warehouse UUID. Resolve it through the
+        # standard /v1/config negotiation instead of hard-coding an id.
+        config = requests.get(
+            f"{LK_BASE}/catalog/v1/config", params={"warehouse": WAREHOUSE}
+        ).json()
+        prefix = config.get("overrides", {}).get("prefix") or config.get("defaults", {}).get("prefix")
+        if not prefix:
+            raise RuntimeError(f"catalog did not return a prefix for warehouse '{WAREHOUSE}'")
+        return prefix
+
+    def ensure_namespaces():
+        prefix = warehouse_prefix()
+        for namespace in NAMESPACES:
+            r = requests.post(
+                f"{LK_BASE}/catalog/v1/{prefix}/namespaces",
+                json={"namespace": [namespace], "properties": {}},
+            )
+            if r.status_code not in (200, 201, 409):
+                r.raise_for_status()
+            print(f"warehouse={WAREHOUSE} namespace={namespace} ready")
 
     if __name__ == "__main__":
         wait_for_lakekeeper()
-        ensure_warehouse_and_namespace()
+        ensure_bootstrap()
+        ensure_warehouse()
+        ensure_namespaces()
 ---
 apiVersion: batch/v1
 kind: Job

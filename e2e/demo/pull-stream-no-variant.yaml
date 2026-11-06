@@ -1,0 +1,112 @@
+apiVersion: streaming.sneaksanddata.com/v1
+kind: PullStream
+metadata:
+  name: delivery
+  namespace: default
+spec:
+  execution:
+    backfillJobTemplateRef:
+      kind: StreamingJobTemplate
+      name: noop
+      namespace: default
+    layoutVersion: v1
+    streamingBackend:
+      changeCapture:
+        jobTemplateRef:
+          kind: StreamingJobTemplate
+          name: arcane-stream-pull
+          namespace: default
+    suspended: false
+  streamConfigurationSecretRef:
+    name: pull-stream-config
+  observability:
+    metricTags: {}
+  staging:
+    table:
+      maxRowsPerFile: 10000
+      stagingCatalogName: iceberg
+      stagingSchemaName: staging
+      isUnifiedSchema: false
+    icebergCatalog:
+      catalogProperties: {}
+      catalogUri: http://lakekeeper:8181/catalog
+      namespace: staging
+      warehouse: demo
+      maxCatalogInstanceLifetime: 3600 second
+  streamMode:
+    backfill:
+      backfillBehavior: Overwrite
+      backfillStartDate: '2026-01-01T00:00:00Z'
+    changeCapture:
+      changeCaptureInterval: 2 second
+      changeCaptureJitterVariance: 0.1
+      changeCaptureJitterSeed: 0
+      changeCaptureRangeLimit: 100
+  sink:
+    mergeServiceClient:
+      connectionUrl: jdbc:trino://trino:8080
+      credentialType:
+        basic: {}
+      extraConnectionParameters:
+        clientTags: demo
+      queryRetryMode:
+        never: {}
+      queryRetryBaseDuration: 100 millisecond
+      queryRetryOnMessageContents: []
+      queryRetryScaleFactor: 0.1
+      queryRetryMaxAttempts: 3
+    targetTableProperties:
+      format: PARQUET
+      sortedBy: []
+      parquetBloomFilterColumns: []
+    targetTableFullName: iceberg.arcane_pull_test.delivery
+    maintenanceSettings:
+      targetOptimizeSettings:
+        batchThreshold: 60
+        fileSizeThreshold: 512MB
+      targetOrphanFilesExpirationSettings:
+        batchThreshold: 60
+        retentionThreshold: 6h
+      targetSnapshotExpirationSettings:
+        batchThreshold: 60
+        retentionThreshold: 6h
+      targetAnalyzeSettings:
+        includedColumns: []
+        batchThreshold: 60
+    icebergCatalog:
+      catalogProperties: {}
+      catalogUri: http://lakekeeper:8181/catalog
+      namespace: arcane_pull_test
+      warehouse: demo
+      maxCatalogInstanceLifetime: 3600 second
+  throughput:
+    shaperImpl:
+      memoryBound:
+        fallbackStringTypeSizeEstimate: 50
+        objectTypeSizeEstimate: 4096
+        chunkCostScale: 1
+        chunkCostMax: 10
+        tableRowCountWeight: 0.05
+        tableSizeWeight: 0.05
+        tableSizeScaleFactor: 1
+        chunkSizeCap: 1000000
+        maxStatisticsAge: 604800
+    advisedRate: 1000 per 1 second
+    advisedBurst: 1000
+    advisedChunkSize: 10
+  source:
+    configuration:
+      pullIndexKey: producer
+      pullIndexValue: delivery
+      versionFieldName: timestampUTC
+      region: us-east-1
+      tableName: arcane_ingestion
+      endpoint: http://dynamodb-local:8000
+    buffering:
+      enabled: false
+      strategy: {}
+    fieldSelectionRule:
+      essentialFields: []
+      rule:
+        all: {}
+      isServerSide: false

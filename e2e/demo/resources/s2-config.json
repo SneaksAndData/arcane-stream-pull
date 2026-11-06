@@ -1,0 +1,23 @@
+{
+  "listen": ":9000",
+  "type": "osfs",
+  "root": "/var/lib/s2",
+  "user": "minioadmin",
+  "password": "minioadmin",
+  "buckets": ["tmp", "lakehouse"],
+  "users": [
+    {
+      "access_key_id": "*",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": ["s3:GetObject", "s3:ListBucket"],
+            "Resource": ["arn:aws:s3:::tmp", "arn:aws:s3:::tmp/*"]
+          }
+        ]
+      }
+    }
+  ]
+}
