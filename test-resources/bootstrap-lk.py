@@ -18,7 +18,7 @@ def init_lk():
                                                                                        "endpoint": "http://localhost:9000",
                                                                                        "region": "us-east-1",
                                                                                        "path-style-access": True,
-                                                                                       "flavor": "s3-compat",
+                                                                                       "flavor": "minio",
                                                                                        "sts-enabled": False
                                                                                      },
                                                                                      "storage-credential": {
