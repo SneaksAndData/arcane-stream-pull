@@ -41,11 +41,11 @@ services:
       lakekeeper:
         condition: service_healthy
     network_mode: host
-    image: "trinodb/trino:474"
+    image: "trinodb/trino:483"
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
   lakekeeper:
-    image: quay.io/lakekeeper/catalog:v0.11.4
+    image: quay.io/lakekeeper/catalog:v0.13.5
     network_mode: host
     environment:
 #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -70,7 +70,7 @@ services:
       s2_ready:
         condition: service_completed_successfully
   lakekeeper_migrate:
-    image: quay.io/lakekeeper/catalog:v0.11.4
+    image: quay.io/lakekeeper/catalog:v0.13.5
     network_mode: host
     environment:
       - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:postgres@localhost:5432/postgres
