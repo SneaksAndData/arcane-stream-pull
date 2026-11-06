@@ -128,8 +128,7 @@ object IntegrationTests extends ZIOSpecDefault:
        |      "catalogProperties": {},
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
-       |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3600 second"
+       |      "warehouse": "demo"
        |    }
        |  },
        |  "streamMode": {
@@ -171,8 +170,7 @@ object IntegrationTests extends ZIOSpecDefault:
        |      "catalogProperties": {},
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
-       |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3600 second"
+       |      "warehouse": "demo"
        |    }
        |  },
        |  "throughput": {
@@ -206,11 +204,7 @@ object IntegrationTests extends ZIOSpecDefault:
        |      "enabled": false,
        |      "strategy": {}
        |    },
-       |    "fieldSelectionRule": {
-       |      "essentialFields": [],
-       |      "rule": { "all": {} },
-       |      "isServerSide": false
-       |    }
+       |    "modifications": {"supported": {}}
        |  }
        |}""".stripMargin
 

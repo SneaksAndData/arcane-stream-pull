@@ -133,3 +133,6 @@ project/secret
 .idea
 .nvmrc
 **/target/**
+
+# Local GitHub token file
+.ghtoken
