@@ -1,0 +1,51 @@
+# Quiet logging for the pull-stream dev-runner.
+#
+# Why this exists: build.sbt's assembly merge strategy discards every logback.xml
+#
+#   case ps if ps.endsWith("logback.xml") => MergeStrategy.discard
+#
+# which drops the application's OWN src/main/resources/logback.xml along with the
+# ones from dependencies. The assembled jar ships logback.file.xml and
+# logback.datadog.xml but no logback.xml, so logback finds no configuration and
+# falls back to its built-in default: root level DEBUG on the console.
+#
+# The practical effect is that every DynamoDB call logs full HTTP wire content and
+# the AWS SDK interceptor chain, thousands of lines a minute, which buries the
+# lines that matter for the demo (staging table created, rows appended, merge
+# applied, watermark updated). This mounts a real logback.xml and points the JVM
+# at it with -Dlogback.configurationFile.
+#
+# Levels: the framework's own loggers stay at INFO, the noisy SDK/HTTP ones go to
+# WARN. Set LOG_LEVEL=DEBUG on the Deployment to debug the plugin itself without
+# bringing the wire logging back.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pull-stream-logback
+  labels:
+    app.kubernetes.io/component: dev-runner
+data:
+  logback.xml: |
+    <configuration>
+        <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+            <layout>
+                <Pattern>%d{HH:mm:ss.SSS} %-5level %logger{28} - %msg%n</Pattern>
+            </layout>
+        </appender>
+
+        <!-- AWS SDK request/response wire dumps and the interceptor chain. -->
+        <logger name="software.amazon.awssdk" level="WARN"/>
+        <logger name="org.apache.http" level="WARN"/>
+        <logger name="org.apache.hc" level="WARN"/>
+        <logger name="io.netty" level="WARN"/>
+        <logger name="com.amazonaws" level="WARN"/>
+
+        <!-- Iceberg/Hadoop/parquet chatter around every staging commit. -->
+        <logger name="org.apache.iceberg" level="INFO"/>
+        <logger name="org.apache.hadoop" level="WARN"/>
+        <logger name="org.apache.parquet" level="WARN"/>
+
+        <root level="${LOG_LEVEL:-INFO}">
+            <appender-ref ref="STDOUT"/>
+        </root>
+    </configuration>

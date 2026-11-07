@@ -1,0 +1,73 @@
+# Demo DataRoute: the single CR that drives the whole demo.
+#
+# Applying this makes arcane-push-stream:
+#   1. expose POST /api/v2/producer1/data   (apiVersion from settings.router.apiVersion)
+#   2. validate bodies against payloadSchema below
+#   3. create iceberg table demo.arcane_pull_test.events in lakekeeper
+#   4. persist each accepted body to DynamoDB with producer=producer1
+#
+# arcane-stream-pull then polls DynamoDB (producer = pullIndexValue) and MERGEs
+# into the iceberg target via trino.
+#
+# Derived from arcane-push-stream/prod_dataroute_variant.yaml, retargeted at the
+# local lakekeeper. Keep `consumerId` in sync with PULL_INDEX_VALUE in demo.sh.
+apiVersion: pushstream.sneaksanddata.com/v1alpha1
+kind: DataRoute
+metadata:
+  name: producer1
+  namespace: default
+spec:
+  consumerId: producer1
+
+  # Only the node under /payload is hoisted into columns. The full request body is
+  # still what gets stored, so changing this pointer lets you re-stream existing rows.
+  jsonExpressionPointer: /payload
+
+  schemaSubject: producer1-event
+  schemaVersion: 1
+
+  iceberg:
+    # In-cluster lakekeeper listens on 8181 (deploy/k8s/lakekeeper.yaml).
+    catalogUri: http://lakekeeper:8181/catalog
+    # Warehouse + namespace are seeded by the bootstrap-lakekeeper Job.
+    warehouse: demo
+    namespace: arcane_pull_test
+    tableName: events
+
+    # `columns` is intentionally omitted: payloadSchema is the source of truth, so
+    # the provisioner derives columns from it. Scalars stay typed; the nested
+    # `attributes` map becomes a `variant`, which pins the table to format-version 3.
+    initialProperties:
+      # arcane-stream-pull parses the ENTIRE comment as its watermark JSON
+      # (DefaultSourceDataProvider.currentWatermark) and refuses to start if it is
+      # missing or not JSON. No `watermark:` prefix. Epoch start = replay everything.
+      comment: '{"timestamp":"1970-01-01T00:00:00Z"}'
+
+  # Every field declared here must be present in the request body.
+  # `payload` is declared WITHOUT a nullable union on purpose: variant columns are
+  # rebuilt from the raw JSON, so a union would store Avro's tagged wire encoding
+  # ({"source":{"string":"x"}}) inside the variant instead of the data itself.
+  payloadSchema: |
+    {
+      "type": "record",
+      "name": "Producer1Event",
+      "namespace": "com.sneaksanddata.pushstream",
+      "fields": [
+        { "name": "event_id", "type": ["null", "string"], "default": null },
+        {
+          "name": "payload",
+          "type": {
+            "type": "record",
+            "name": "Producer1Payload",
+            "fields": [
+              { "name": "source",   "type": "string" },
+              { "name": "sequence", "type": "long" },
+              { "name": "amount",   "type": "double" },
+              { "name": "settled",  "type": "boolean" },
+              { "name": "attributes", "type": { "type": "map", "values": "string" } }
+            ]
+          }
+        },
+        { "name": "tags", "type": { "type": "array", "items": "string" } }
+      ]
+    }

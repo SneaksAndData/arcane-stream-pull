@@ -1,0 +1,40 @@
+apiVersion: pushstream.sneaksanddata.com/v1alpha1
+kind: DataRoute
+metadata:
+  name: delivery
+  namespace: default
+spec:
+  consumerId: delivery
+  jsonExpressionPointer: /payload
+  schemaSubject: delivery
+  schemaVersion: 1
+  iceberg:
+    catalogUri: http://lakekeeper:8181/catalog
+    warehouse: demo
+    namespace: arcane_pull_test
+    tableName: delivery
+    initialProperties:
+      comment: '{"timestamp":"1970-01-01T00:00:00Z"}'
+  payloadSchema: |
+    {
+      "type": "record",
+      "name": "Delivery",
+      "namespace": "com.sneaksanddata.pushstream",
+      "fields": [
+        { "name": "event_id", "type": ["null", "string"], "default": null },
+        {
+          "name": "payload",
+          "type": {
+            "type": "record",
+            "name": "Producer1Payload",
+            "fields": [
+              { "name": "source",   "type": "string" },
+              { "name": "sequence", "type": "long" },
+              { "name": "amount",   "type": "double" },
+              { "name": "settled",  "type": "boolean" }
+            ]
+          }
+        },
+        { "name": "tags", "type": { "type": "array", "items": "string" } }
+      ]
+    }

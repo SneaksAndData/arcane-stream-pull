@@ -1,0 +1,55 @@
+# Demo overlay for arcane-push-stream in the shared kind cluster.
+#
+# Layered on top of the push-stream chart's own values:
+#   helm upgrade --install arcane-ingestion <push-stream>/.helm \
+#     -f <push-stream>/.helm/values.yaml \
+#     -f <push-stream>/.helm/values-dev.yaml \
+#     -f e2e/demo/values-push-stream-demo.yaml
+#
+# Two things this fixes that values-dev.yaml alone does not cover:
+#
+# 1. DynamoDB table name. values-dev.yaml uses `arcane_push_stream`, but
+#    arcane-stream-pull's .helm/values-dev.yaml polls `arcane_ingestion`
+#    (source.configuration.tableName). Without this override the pull side
+#    scans an empty table forever and the demo looks broken.
+#
+# 2. Iceberg catalog auth. IcebergProvisioner.buildAdditionalPropertiesFromEnv
+#    throws unless ARCANE_FRAMEWORK__CATALOG_NO_AUTH is set, because it otherwise
+#    demands the OAuth2 ARCANE_FRAMEWORK__S3_CATALOG_AUTH_* vars. Local lakekeeper
+#    runs unauthenticated, so opt out and point S3 FileIO at the in-cluster s2.
+
+settings:
+  persistence:
+    dynamoDB:
+      # Must equal source.configuration.tableName in arcane-stream-pull's values-dev.yaml.
+      tableName: "arcane_ingestion"
+      endpoint: "http://dynamodb-local.default.svc.cluster.local:8000"
+      autoCreateTable: true
+
+extraEnv:
+  - name: JAVA_TOOL_OPTIONS
+    value: "-Dlogback.configurationFile=/etc/arcane-push-stream/logback.json.xml"
+  # dynamodb-local and s2 both accept any credentials; the AWS SDK still requires some.
+  - name: AWS_ACCESS_KEY_ID
+    value: "minioadmin"
+  - name: AWS_SECRET_ACCESS_KEY
+    value: "minioadmin"
+  - name: AWS_REGION
+    value: "us-east-1"
+  # Skip OAuth2 against the local lakekeeper.
+  - name: ARCANE_FRAMEWORK__CATALOG_NO_AUTH
+    value: "1"
+  - name: ARCANE_FRAMEWORK__S3_CATALOG_ENDPOINT
+    value: "http://s2:9000"
+  - name: ARCANE_FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID
+    value: "minioadmin"
+  - name: ARCANE_FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY
+    value: "minioadmin"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
