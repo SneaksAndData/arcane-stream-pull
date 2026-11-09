@@ -4,15 +4,9 @@ package tests
 import com.sneaksanddata.arcane.framework.migrations.base.CurrentMigration
 import com.sneaksanddata.arcane.framework.models.MetadataKeys
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
-import com.sneaksanddata.arcane.framework.models.schemas.{
-  ArcaneSchema,
-  Field,
-  MergeKeyField,
-  VersionField as ArcaneVersionField
-}
+import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.pullstream.PullStreamingSource
 import com.sneaksanddata.arcane.framework.services.pullstream.versioning.PullStreamWatermark
-import com.sneaksanddata.arcane.framework.testkit.iceberg.TestPropertyManager
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
 import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{clearTarget, readTarget}
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
@@ -21,11 +15,11 @@ import com.sneaksanddata.arcane.pull_stream_plugin_context.models.app.PullStream
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.*
-import zio.test.*
-import zio.test.TestAspect.timeout
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
+import zio.test.*
+import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO, ZLayer}
 
 import java.net.URI
@@ -59,7 +53,6 @@ object IntegrationTests extends ZIOSpecDefault:
       Field("id", StringType),
       Field("value", StringType),
       Field("TimestampUTC", StringType),
-      ArcaneVersionField,
       MergeKeyField
     )
   )
@@ -73,17 +66,6 @@ object IntegrationTests extends ZIOSpecDefault:
 
   // sbt's layered classloaders hide the JDBC driver from DriverManager's ServiceLoader lookup
   private val registerDriver = ZIO.attempt(java.sql.DriverManager.registerDriver(new io.trino.jdbc.TrinoDriver()))
-
-  // the source layer refuses to start unless the sink table carries these plugin properties
-  private def setPluginProperties(tableShortName: String, markMigrated: Boolean): Task[Unit] = ZIO.scoped {
-    for
-      manager <- TestPropertyManager.sinkPropertyManager
-      _       <- manager.setProperty(tableShortName, PullStreamingSource.jsonPointerPropertyKey, "")
-      _       <- manager.setProperty(tableShortName, PullStreamingSource.pageSizePropertyKey, "1000")
-      _       <- manager.setProperty(tableShortName, PullStreamingSource.decodeChunkSizePropertyKey, "32")
-      _       <- ZIO.when(markMigrated)(manager.setProperty(tableShortName, MigrationKey, CurrentMigration.toString))
-    yield ()
-  }
 
   private def connect(): Connection = java.sql.DriverManager.getConnection(TrinoConnectionUri)
 
@@ -124,18 +106,6 @@ object IntegrationTests extends ZIOSpecDefault:
       value <- ZIO.attempt(if resultSet.next() then Some(resultSet.getString(1)) else None)
     yield value
   }
-
-  // Iceberg schema for both the source-schema lookup table and the merge target.
-  // MergeKeyField is required so the merge processor can locate a merge key; ARCANE_VERSION carries the DynamoDB
-  // watermark and orders concurrent versions during a merge.
-  private val sourceSchema: ArcaneSchema = ArcaneSchema(
-    Seq(
-      Field("id", StringType),
-      Field("value", StringType),
-      ArcaneVersionField,
-      MergeKeyField
-    )
-  )
 
   private def buildDynamoClient: Task[DynamoDbClient] = ZIO.attempt(
     DynamoDbClient
@@ -314,6 +284,15 @@ object IntegrationTests extends ZIOSpecDefault:
       ZLayer.succeed[DatagramSocketConfig](context) ++ ZLayer.succeed[MetricsConfig](context) ++
       ZLayer.succeed(DatadogPublisherConfig())
 
+  // brings a sink table in the legacy layout in line with the current one, exactly as the operator does it
+  private def migrate(context: PullStreamPluginContext): ZIO[Any, Any, Unit] =
+    for
+      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "migrate")
+      migrator <- Common.getTestApp(Duration.ofSeconds(45), contextLayer(context)).fork
+      _        <- migrator.runOrFail(zio.Duration.fromSeconds(40))
+      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "stream")
+    yield ()
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PullStreamIntegrationTests")(
     test("migrates a legacy sink table when run in migrate mode") {
       ZIO.scoped {
@@ -328,7 +307,6 @@ object IntegrationTests extends ZIOSpecDefault:
             legacySchema,
             PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
           )
-          _ <- setPluginProperties(MigrationTargetShort, markMigrated = false)
           _ <- seedLegacyRows(MigrationTargetFull)
 
           columnsBefore   <- readColumns(MigrationTargetFull)
@@ -369,15 +347,14 @@ object IntegrationTests extends ZIOSpecDefault:
             deleteSourceTable(client, SourceTableShort)
           )
 
-          _ <- ZIO.attempt(clearTarget(TargetTableFull))
+          _ <- clearTarget(TargetTableFull)
 
           // The pull source uses `comment` on the target iceberg table as its version.
           // We set it to "now()" so any item we insert with a strictly greater timestamp will be ingested.
           watermarkStart = PullStreamWatermark(
             OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusSeconds(1)
           )
-          _ <- prepareWatermark(SourceTableShort, sourceSchema, watermarkStart)
-          _ <- setPluginProperties(SourceTableShort, markMigrated = true)
+          _ <- prepareWatermark(SourceTableShort, legacySchema, watermarkStart)
 
           // Seed three messages with strictly increasing timestamps so the source advances its version.
           // One item per row, as in production: the item's `id` attribute is what identifies the target row.
@@ -395,6 +372,8 @@ object IntegrationTests extends ZIOSpecDefault:
           }
 
           streamContext = PullStreamPluginContext(streamContextJson(DynamoEndpoint))
+
+          _ <- migrate(streamContext)
 
           runner <- Common.getTestApp(Duration.ofSeconds(15), contextLayer(streamContext)).fork
           _      <- runner.runOrFail(zio.Duration.fromSeconds(20))

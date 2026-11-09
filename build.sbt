@@ -31,7 +31,7 @@ lazy val plugin = (project in file("."))
   .settings(
     name                                      := "arcane-stream-pull",
     idePackagePrefix                          := Some("com.sneaksanddata.arcane.stream_pull"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3"              % "2.3.2-50-gd09e776",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3"              % "2.3.2-53-g48ac977",
 
     // Test dependencies
     libraryDependencies += "org.scalatest"    %% "scalatest"               % "3.2.20" % Test,

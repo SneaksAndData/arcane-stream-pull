@@ -81,7 +81,7 @@ it: build
     trap 'just stop' EXIT
 
     just up
-    docker compose -f {{COMPOSE_FILE}} wait prepare_buckets s3_reader_prepare lakekeeper_migrate lakekeeper_prepare
+    docker compose -f {{COMPOSE_FILE}} wait s2_ready s3_reader_prepare lakekeeper_migrate lakekeeper_prepare
     just test
 
 stream debug="":
