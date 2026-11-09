@@ -1,0 +1,23 @@
+# The operator runs a backfill job before it starts the streaming job for any new
+# stream. The pull plugin does not implement backfill (the framework stubs it out
+# and fails with UnsupportedOperationException), so the backfill step points at
+# this template, which succeeds immediately. Streaming then uses arcane-stream-pull.
+apiVersion: streaming.sneaksanddata.com/v1
+kind: StreamingJobTemplate
+metadata:
+  name: noop
+spec:
+  apiVersion: batch/v1
+  kind: Job
+  metadata: {}
+  spec:
+    backoffLimit: 0
+    ttlSecondsAfterFinished: 1
+    template:
+      spec:
+        restartPolicy: Never
+        containers:
+          - name: noop
+            image: busybox:1.36
+            imagePullPolicy: IfNotPresent
+            command: ["true"]

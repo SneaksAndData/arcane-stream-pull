@@ -1,0 +1,95 @@
+# Demo overlay on top of the shared kind data plane.
+#
+#   kubectl apply -k e2e/demo
+#
+# ../../deploy/k8s stays the single source of truth for s2, postgres, lakekeeper,
+# trino, dynamodb-local and the bootstrap jobs. This overlay adds exactly one
+# demo-specific change.
+#
+# Why the lakekeeper patch:
+#   deploy/k8s/lakekeeper.yaml pins LAKEKEEPER__BASE_URI to http://lakekeeper:8181.
+#   Lakekeeper bakes that value into its web UI bundle as the API address and also
+#   hands it to Iceberg clients as the `overrides.uri` they must switch to. A single
+#   fixed value is therefore wrong for one of the two callers:
+#
+#     in-cluster (push-stream, pull-stream, trino) reach it as  lakekeeper:8181
+#     a browser over `kubectl port-forward` reaches it as       localhost:8181
+#
+#   With BASE_URI pinned to the DNS name, the UI loaded on localhost:8181 tries to
+#   call http://lakekeeper:8181, which does not resolve from the host - so the
+#   "browse the iceberg tables in Lakekeeper" part of the demo breaks.
+#
+#   Removing the two env vars makes lakekeeper derive the base URI per-request from
+#   the Host header, so both callers work. This matches arcane-push-stream's own
+#   deploy/k8s/lakekeeper.yaml, which leaves BASE_URI unset and documents the same
+#   reasoning.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../deploy/k8s
+  # Real logback config for the dev-runner; the assembled jar ships none.
+  # See resources/pull-stream-logback.yaml for the full explanation.
+  - resources/pull-stream-logback.yaml
+  # Env for the streaming jobs, referenced by PullStream.spec.streamConfigurationSecretRef.
+  - resources/pull-stream-config.yaml
+  # RBAC the arcane-operator needs on PullStreams and Events.
+  - resources/operator-rbac.yaml
+  # Backfill step for pull streams, which cannot backfill.
+  - resources/noop-job-template.yaml
+
+# The Lakekeeper UI previews tables with DuckDB-WASM, which reads S2 from the
+# browser WITHOUT signing requests. resources/s2-config.json adds an anonymous
+# read-only principal on the `tmp` bucket so those reads succeed.
+configMapGenerator:
+  - name: s2-config
+    files:
+      - config.json=resources/s2-config.json
+
+# deploy/k8s pins lakekeeper v0.11.4. The demo DataRoute declares a `variant`
+# column (the `attributes` map), which forces the target table to Iceberg
+# format-version 3, and v0.11.4 rejects that schema outright:
+#
+#   Unable to process: Failed to deserialize the JSON body into the target type:
+#   schema: data did not match any variant of untagged enum SchemaEnum
+#
+# arcane-push-stream's own deploy/k8s/lakekeeper.yaml runs v0.13.3, which is the
+# version its variant-producing DataRoutes are exercised against. Match it here.
+images:
+  - name: quay.io/lakekeeper/catalog
+    newTag: v0.13.3
+  # deploy/k8s pins trinodb/trino:474, which predates Iceberg VARIANT read support
+  # (trinodb/trino#24538). Against 474 the demo table provisions fine but every
+  # query fails with "Failed to load table: events in arcane_pull_test namespace",
+  # because the `attributes` variant column cannot be mapped. 484 reads VARIANT on
+  # format-version 3 tables. The integration tests keep 474 because their fixtures
+  # are flat and never produce a variant column.
+  - name: trinodb/trino
+    newTag: "484"
+
+patches:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: lakekeeper
+    patch: |
+      - op: remove
+        path: /spec/template/spec/containers/0/env/2
+      - op: remove
+        path: /spec/template/spec/containers/0/env/2
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: s2
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value: { name: S2_SERVER_CONFIG, value: /etc/s2/config.json }
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value: { name: s2-config, mountPath: /etc/s2, readOnly: true }
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value: { name: s2-config, configMap: { name: s2-config } }

@@ -1,0 +1,50 @@
+# The arcane-operator chart grants access to its own CRDs, jobs and job templates,
+# but not to the PullStream resources it has to watch (the plugin chart owns those
+# ClusterRoles) and not to Events. Bind both to the operator's service account.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: arcane-operator-events
+rules:
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: arcane-operator-events
+subjects:
+  - kind: ServiceAccount
+    name: arcane-operator
+    namespace: arcane
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: arcane-operator-events
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: arcane-operator-pull-streams
+subjects:
+  - kind: ServiceAccount
+    name: arcane-operator
+    namespace: arcane
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: arcane-stream-pull-editor
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: arcane-operator-pull-streams-viewer
+subjects:
+  - kind: ServiceAccount
+    name: arcane-operator
+    namespace: arcane
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: arcane-stream-pull-viewer

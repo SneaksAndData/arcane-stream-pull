@@ -1,0 +1,40 @@
+# Lakekeeper hands every client the warehouse endpoint, including the browser (its
+# UI previews tables with DuckDB-WASM, reading parquet straight from S2). One name
+# has to work in both places:
+#
+#   browser:    s2.localhost resolves to 127.0.0.1 by itself (RFC 6761), and the
+#               demo port-forwards S2 on localhost:9000
+#   in-cluster: this rewrite sends s2.localhost to the s2 Service
+#
+# Same Corefile as kind's default, plus the rewrite line.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health {
+           lameduck 5s
+        }
+        ready
+        rewrite name s2.localhost s2.default.svc.cluster.local
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+           pods insecure
+           fallthrough in-addr.arpa ip6.arpa
+           ttl 30
+        }
+        prometheus :9153
+        forward . /etc/resolv.conf {
+           max_concurrent 1000
+        }
+        cache 30 {
+           disable success cluster.local
+           disable denial cluster.local
+        }
+        loop
+        reload
+        loadbalance
+    }
