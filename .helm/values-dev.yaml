@@ -45,7 +45,7 @@ devRunner:
         "observability": {"metricTags": {}},
         "staging": {
           "table": {"maxRowsPerFile": 10000, "stagingCatalogName": "iceberg", "stagingSchemaName": "test", "isUnifiedSchema": false},
-          "icebergCatalog": {"catalogProperties": {}, "catalogUri": "http://lakekeeper:8181/catalog", "namespace": "test", "warehouse": "demo", "maxCatalogInstanceLifetime": "3600 second"}
+          "icebergCatalog": {"catalogProperties": {}, "catalogUri": "http://lakekeeper:8181/catalog", "namespace": "test", "warehouse": "demo"}
         },
         "streamMode": {
           "backfill": {"backfillBehavior": "Overwrite", "backfillStartDate": "2026-01-01T00:00:00Z"},
@@ -70,7 +70,7 @@ devRunner:
             "targetSnapshotExpirationSettings":   {"batchThreshold": 60, "retentionThreshold": "6h"},
             "targetAnalyzeSettings":              {"includedColumns": [], "batchThreshold": 60}
           },
-          "icebergCatalog": {"catalogProperties": {}, "catalogUri": "http://lakekeeper:8181/catalog", "namespace": "test", "warehouse": "demo", "maxCatalogInstanceLifetime": "3600 second"}
+          "icebergCatalog": {"catalogProperties": {}, "catalogUri": "http://lakekeeper:8181/catalog", "namespace": "test", "warehouse": "demo"}
         },
         "throughput": {
           "shaperImpl": {"memoryBound": {"fallbackStringTypeSizeEstimate": 50, "objectTypeSizeEstimate": 4096, "chunkCostScale": 1, "chunkCostMax": 10, "tableRowCountWeight": 0.05, "tableSizeWeight": 0.05, "tableSizeScaleFactor": 1, "chunkSizeCap": 1000000, "maxStatisticsAge": 604800}},
@@ -86,6 +86,6 @@ devRunner:
             "endpoint":            "http://dynamodb-local:8000"
           },
           "buffering":          {"enabled": false, "strategy": {}},
-          "fieldSelectionRule": {"essentialFields": [], "rule": {"all": {}}, "isServerSide": false}
+          "modifications":       {"supported": {}}
         }
       }

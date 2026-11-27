@@ -30,7 +30,6 @@ spec:
       catalogUri: http://catalog-internal.data-catalog.svc.cluster.local:8181/catalog
       namespace: lakehouse_bronze.arcane_pull_test
       warehouse: staging
-      maxCatalogInstanceLifetime: 3600 second
   streamMode:
     backfill:
       backfillBehavior: Overwrite
@@ -76,7 +75,6 @@ spec:
       catalogUri: http://localhost:8181/catalog
       namespace: arcane_pull_test
       warehouse: lakehouse-bronze
-      maxCatalogInstanceLifetime: 3600 second
   throughput:
     shaperImpl:
       memoryBound:
@@ -103,8 +101,5 @@ spec:
     buffering:
       enabled: false
       strategy: {}
-    fieldSelectionRule:
-      essentialFields: []
-      rule:
-        all: {}
-      isServerSide: false
+    modifications:
+      supported: {}
