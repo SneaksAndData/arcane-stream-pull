@@ -49,7 +49,15 @@ object main extends ZIOAppDefault:
           settings = context.asInstanceOf[PullStreamPluginContext].source.configuration
           client <- ZIO.attempt {
             val builder = DynamoDbClient.builder().region(Region.of(settings.region))
-            settings.endpoint.foreach(ep => builder.endpointOverride(URI.create(ep)))
+            // Explicitly disable dual-stack endpoint usage whenever an endpoint override is configured.
+            // The AWS SDK rejects the combination of endpointOverride + dual-stack endpoints, and dual-stack
+            // can be silently enabled by the environment (AWS_USE_DUALSTACK_ENDPOINT, profile config, or
+            // the aws.useDualstackEndpoint system property), so we make the behavior deterministic here.
+            settings.endpoint.foreach { ep =>
+              builder
+                .endpointOverride(URI.create(ep))
+                .dualstackEnabled(false)
+            }
             builder.build()
           }
         yield client
